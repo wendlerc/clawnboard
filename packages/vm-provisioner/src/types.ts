@@ -8,6 +8,8 @@ export interface ProvisionerConfig {
   apiToken: string;
   /** Region for new machines (default: "iad") */
   region?: string;
+  /** Default Docker image (default: ghcr.io/openclaw/clawnboard-moltbot:latest) */
+  image?: string;
   /** Custom logger instance */
   logger?: Logger;
 }
@@ -22,7 +24,7 @@ export interface MoltbotConfig {
   size?: "1gb" | "2gb" | "4gb";
   /** Default AI model (e.g., "anthropic/claude-sonnet-4-5") */
   model?: string;
-  /** Custom Docker image (default: ghcr.io/openclaw/openclaw:latest) */
+  /** Custom Docker image (default: ghcr.io/openclaw/clawnboard-moltbot:latest) */
   image?: string;
   /** Environment variables to pass to OpenClaw */
   env?: Record<string, string>;

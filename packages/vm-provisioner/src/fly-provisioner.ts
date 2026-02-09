@@ -48,6 +48,7 @@ const GATEWAY_TOKEN_METADATA_KEY = "gateway_token";
 
 // Metadata key for storing hidden snapshot IDs (comma-separated)
 const HIDDEN_SNAPSHOTS_METADATA_KEY = "hidden_snapshots";
+const DEFAULT_IMAGE = "ghcr.io/openclaw/clawnboard-moltbot:latest";
 
 /**
  * Fly.io provisioner for OpenClaw moltbots.
@@ -61,6 +62,7 @@ export class FlyProvisioner {
   constructor(config: ProvisionerConfig) {
     this.config = {
       region: "iad",
+      image: DEFAULT_IMAGE,
       ...config,
     };
     this.logger = config.logger || createLogger({ prefix: "fly-provisioner" });
@@ -328,7 +330,7 @@ export class FlyProvisioner {
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
     const machineConfig: FlyMachineConfig = {
-      image: config.image || "ghcr.io/openclaw/openclaw:latest",
+      image: config.image || this.config.image,
       env: {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
@@ -585,7 +587,7 @@ export class FlyProvisioner {
     // The config is preserved except for the image
     const updatedConfig = {
       ...machine.config,
-      image: "ghcr.io/openclaw/openclaw:latest",
+      image: this.config.image,
     };
 
     await this.machinesRequest<FlyMachine>(
@@ -883,7 +885,7 @@ export class FlyProvisioner {
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
     const machineConfig: FlyMachineConfig = {
-      image: "ghcr.io/openclaw/openclaw:latest",
+      image: this.config.image,
       env: {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",

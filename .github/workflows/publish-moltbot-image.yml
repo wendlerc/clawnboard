@@ -1,0 +1,46 @@
+name: Publish moltbot image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docker/Dockerfile.moltbot
+      - .github/workflows/publish-moltbot-image.yml
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to publish (default: latest)"
+        required: false
+        default: "latest"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'latest' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.moltbot
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/clawnboard-moltbot:${{ env.IMAGE_TAG }}
