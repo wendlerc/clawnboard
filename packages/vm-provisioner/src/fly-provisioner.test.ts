@@ -32,7 +32,7 @@ describe("FlyProvisioner", () => {
     created_at: "2024-01-15T10:00:00Z",
     updated_at: "2024-01-15T10:00:00Z",
     config: {
-      image: "ghcr.io/openclaw/clawnboard-moltbot:latest",
+      image: "ghcr.io/wendlerc/clawnboard-moltbot:latest",
       env: {},
       guest: { cpu_kind: "shared", cpus: 2, memory_mb: 2048 },
     },
