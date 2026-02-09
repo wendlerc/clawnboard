@@ -23,12 +23,13 @@ export const moltbotsRouter = new Hono();
 function getProvisioner(): FlyProvisioner {
   const apiToken = process.env.FLY_API_TOKEN;
   const region = process.env.FLY_REGION || "iad";
+  const image = process.env.MOLT_BOT_IMAGE;
 
   if (!apiToken) {
     throw new Error("FLY_API_TOKEN environment variable is required");
   }
 
-  return new FlyProvisioner({ apiToken, region });
+  return new FlyProvisioner({ apiToken, region, image });
 }
 
 const createMoltbotSchema = z.object({

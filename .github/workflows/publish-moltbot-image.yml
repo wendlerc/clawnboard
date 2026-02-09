@@ -43,4 +43,4 @@ jobs:
           context: .
           file: docker/Dockerfile.moltbot
           push: true
-          tags: ghcr.io/openclaw/openclaw:${{ env.IMAGE_TAG }}
+          tags: ghcr.io/${{ github.repository_owner }}/clawnboard-moltbot:${{ env.IMAGE_TAG }}
