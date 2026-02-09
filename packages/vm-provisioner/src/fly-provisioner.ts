@@ -323,6 +323,19 @@ export class FlyProvisioner {
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
         controlUi: { allowInsecureAuth: true },
       },
+      browser: {
+        enabled: true,
+        executablePath: "/usr/bin/chromium",
+        headless: false,
+        noSandbox: true,
+        defaultProfile: "openclaw",
+        profiles: {
+          openclaw: {
+            cdpPort: 18800,
+            color: "#FF4500",
+          },
+        },
+      },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
 
@@ -336,6 +349,7 @@ export class FlyProvisioner {
         OPENCLAW_STATE_DIR: "/data",
         OPENCLAW_PREFER_PNPM: "1",
         NODE_OPTIONS: "--max-old-space-size=1536",
+        DISPLAY: ":99",
         // Gateway authentication - unique token per moltbot
         // Token is also stored in Fly.io metadata for secure retrieval
         OPENCLAW_GATEWAY_TOKEN: gatewayToken,
@@ -383,7 +397,7 @@ export class FlyProvisioner {
             "-c",
             // Create config file if it doesn't exist, then start gateway
             // Config structure matches: https://docs.openclaw.ai/platforms/fly
-            `mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
@@ -879,6 +893,19 @@ export class FlyProvisioner {
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
         controlUi: { allowInsecureAuth: true },
       },
+      browser: {
+        enabled: true,
+        executablePath: "/usr/bin/chromium",
+        headless: false,
+        noSandbox: true,
+        defaultProfile: "openclaw",
+        profiles: {
+          openclaw: {
+            cdpPort: 18800,
+            color: "#FF4500",
+          },
+        },
+      },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
 
@@ -891,6 +918,7 @@ export class FlyProvisioner {
         OPENCLAW_STATE_DIR: "/data",
         OPENCLAW_PREFER_PNPM: "1",
         NODE_OPTIONS: "--max-old-space-size=1536",
+        DISPLAY: ":99",
         OPENCLAW_GATEWAY_TOKEN: gatewayToken,
         ...config.env,
       },
@@ -933,7 +961,7 @@ export class FlyProvisioner {
             "/bin/sh",
             "-c",
             // Don't overwrite config since we're restoring from snapshot
-            `mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
