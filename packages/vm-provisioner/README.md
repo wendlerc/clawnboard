@@ -9,7 +9,7 @@ This package handles deploying OpenClaw to Fly.io Machines:
 - **Create** — Spins up a new Fly.io app and machine running OpenClaw
 - **Start/Stop** — Control machine lifecycle
 - **Restart** — Reboot a moltbot
-- **Update** — Pull the latest OpenClaw image and restart
+- **Update** — Pull the latest OpenClaw image (`ghcr.io/openclaw/openclaw:latest`) and restart
 - **Destroy** — Permanently remove a moltbot and its app
 
 Each moltbot is a full OpenClaw instance with all capabilities (chat, browser, shell, voice, etc.).
@@ -40,7 +40,7 @@ console.log(`Access OpenClaw at: https://${moltbot.hostname}`);
 await provisioner.stopMoltbot("assistant");
 await provisioner.startMoltbot("assistant");
 
-// Update to latest OpenClaw version
+// Update to latest OpenClaw version (ghcr.io/openclaw/openclaw:latest)
 await provisioner.updateMoltbot("assistant");
 
 // Restart
@@ -74,7 +74,7 @@ new FlyProvisioner({
 | `startMoltbot(name)` | Start a stopped moltbot |
 | `stopMoltbot(name)` | Stop a running moltbot |
 | `restartMoltbot(name)` | Restart a moltbot |
-| `updateMoltbot(name)` | Update to latest OpenClaw image |
+| `updateMoltbot(name)` | Update to latest OpenClaw image (`ghcr.io/openclaw/openclaw:latest`) |
 | `destroyMoltbot(name)` | Permanently delete a moltbot |
 | `getMoltbotUrl(moltbot)` | Get the OpenClaw Control UI URL |
 

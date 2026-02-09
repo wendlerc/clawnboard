@@ -137,7 +137,7 @@ This takes ~60 seconds on first deploy.
 | **Stop Server** | Click "Stop" → Pauses the moltbot (saves money) |
 | **Start Server** | Click "Start" → Resumes a stopped moltbot |
 | **Restart Server** | Click "Restart" → Reboots the moltbot |
-| **Update OpenClaw** | Click "Update OpenClaw" → Pulls latest image |
+| **Update OpenClaw** | Click "Update OpenClaw" → Pulls latest image (`ghcr.io/openclaw/openclaw:latest`) |
 | **Delete** | Click "Delete" → Permanently deletes moltbot |
 
 The dashboard auto-refreshes every 5 seconds to show current status.
@@ -209,12 +209,16 @@ clawnboard/
 │   ├── shared/              # Shared types and constants
 │   └── vm-provisioner/      # Fly.io provisioning logic
 └── docker/
-    └── Dockerfile.moltbot   # OpenClaw container image
+    └── Dockerfile.moltbot   # OpenClaw container image (published to ghcr.io/openclaw/openclaw:latest)
 ```
 
 ---
 
 ## Troubleshooting
+
+### Which Docker image gets deployed?
+
+ClawnBoard deploys `ghcr.io/openclaw/openclaw:latest`. That image is built from `docker/Dockerfile.moltbot` and published by the GitHub Actions workflow at `.github/workflows/publish-moltbot-image.yml`. If you change the Dockerfile, make sure the workflow runs (or trigger it manually) so the new image is pushed before updating moltbots.
 
 ### "Not authorized" or "Fly.io API error"
 
@@ -231,7 +235,7 @@ Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to `apps/api/.env`
 
 ### Moltbot stuck on "Starting" or "Booting"
 
-- First deploy downloads the OpenClaw Docker image (~60 seconds)
+- First deploy downloads the OpenClaw Docker image (`ghcr.io/openclaw/openclaw:latest`, ~60 seconds)
 - Server initialization can take 1-2 minutes
 - Check logs: `fly logs -a moltbot-<name>`
 - If it keeps restarting, check for missing environment variables
