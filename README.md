@@ -216,6 +216,10 @@ clawnboard/
 
 ## Troubleshooting
 
+### Which Docker image gets deployed?
+
+ClawnBoard deploys `ghcr.io/openclaw/openclaw:latest`. That image is built from `docker/Dockerfile.moltbot` and published by the GitHub Actions workflow at `.github/workflows/publish-moltbot-image.yml`. If you change the Dockerfile, make sure the workflow runs (or trigger it manually) so the new image is pushed before updating moltbots.
+
 ### "Not authorized" or "Fly.io API error"
 
 1. Make sure you're using an **org token**, not a deploy token:

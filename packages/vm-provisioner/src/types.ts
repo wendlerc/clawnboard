@@ -22,7 +22,7 @@ export interface MoltbotConfig {
   size?: "1gb" | "2gb" | "4gb";
   /** Default AI model (e.g., "anthropic/claude-sonnet-4-5") */
   model?: string;
-  /** Custom Docker image (default: ghcr.io/openclaw/openclaw:latest) */
+  /** Custom Docker image (default: ghcr.io/openclaw/openclaw:latest, published by this repo's workflow) */
   image?: string;
   /** Environment variables to pass to OpenClaw */
   env?: Record<string, string>;
