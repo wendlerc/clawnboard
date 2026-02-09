@@ -5,6 +5,7 @@ FROM ghcr.io/openclaw/openclaw:latest
 
 USER root
 
+
 # Install required packages
 RUN apt-get update && apt-get install -y \
     dbus-x11 \
