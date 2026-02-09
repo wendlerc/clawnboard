@@ -77,6 +77,14 @@ export interface FlyMachine {
   created_at: string;
   updated_at: string;
   config: FlyMachineConfig;
+  checks?: FlyMachineCheck[];
+}
+
+export interface FlyMachineCheck {
+  name: string;
+  status: string;
+  output?: string;
+  updated_at?: string;
 }
 
 export interface FlyMachineConfig {

@@ -61,9 +61,10 @@ export class FlyProvisioner {
 
   constructor(config: ProvisionerConfig) {
     this.config = {
-      region: "iad",
-      image: DEFAULT_IMAGE,
       ...config,
+      region: config.region || "iad",
+      // Ensure image always has a value — undefined from env vars must not override the default
+      image: config.image || DEFAULT_IMAGE,
     };
     this.logger = config.logger || createLogger({ prefix: "fly-provisioner" });
   }
@@ -306,6 +307,10 @@ export class FlyProvisioner {
             primary: primaryModel,
             fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
           },
+          // Match "kimi25" defaults (but keep secrets out of config).
+          // This controls what the agent is allowed to do by default.
+          elevatedDefault: "full",
+          sandbox: { mode: "off" },
           maxConcurrent: 4,
         },
         list: [{ id: "main", default: true }],
@@ -323,6 +328,29 @@ export class FlyProvisioner {
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
         controlUi: { allowInsecureAuth: true },
       },
+      // Enable Discord integration defaults. Token should come from env var
+      // (e.g. DISCORD_BOT_TOKEN via Fly secrets), not from this JSON.
+      channels: {
+        discord: {
+          enabled: true,
+          allowBots: true,
+          groupPolicy: "allowlist",
+          actions: { reactions: true, messages: true },
+          dm: {
+            enabled: true,
+            policy: "allowlist",
+            // Intentionally empty by default; populate with Discord user IDs.
+            allowFrom: [],
+          },
+          // Intentionally empty by default; populate with guild/channel allowlist.
+          guilds: {},
+        },
+      },
+      plugins: {
+        entries: {
+          discord: { enabled: true },
+        },
+      },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
 
@@ -330,7 +358,7 @@ export class FlyProvisioner {
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
     const machineConfig: FlyMachineConfig = {
-      image: config.image || this.config.image,
+      image: config.image || this.config.image || DEFAULT_IMAGE,
       env: {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
@@ -418,6 +446,7 @@ export class FlyProvisioner {
       // Wait for machine to be started, then install sudo access
       // SSH requires the machine to be running
       await this.waitForState(appName, machine.id, "started", 120000);
+      await this.waitForChecksPassing(appName, machine.id, 300000);
       await this.installSudoAccess(appName);
 
       const instance = this.mapMachineToInstance(machine, appName);
@@ -516,6 +545,7 @@ export class FlyProvisioner {
 
     // Wait for start, then reinstall sudo (container resets to base image)
     const moltbot = await this.waitForState(appName, machineId, "started");
+    await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
     this.logger.info(`Moltbot started: ${moltbotName}`, context);
     return moltbot;
@@ -587,7 +617,7 @@ export class FlyProvisioner {
     // The config is preserved except for the image
     const updatedConfig = {
       ...machine.config,
-      image: this.config.image,
+      image: this.config.image || DEFAULT_IMAGE,
     };
 
     await this.machinesRequest<FlyMachine>(
@@ -602,6 +632,7 @@ export class FlyProvisioner {
 
     // Wait for the machine to be running again, then install sudo
     const moltbot = await this.waitForState(appName, machineId, "started");
+    await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
     this.logger.info(`Moltbot updated: ${moltbotName}`, context);
     return moltbot;
@@ -628,6 +659,7 @@ export class FlyProvisioner {
 
     // Wait for restart, then reinstall sudo (container resets to base image)
     const moltbot = await this.waitForState(appName, machineId, "started");
+    await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
     this.logger.info(`Moltbot restarted: ${moltbotName}`, context);
     return moltbot;
@@ -862,6 +894,9 @@ export class FlyProvisioner {
             primary: primaryModel,
             fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
           },
+          // Match "kimi25" defaults (but keep secrets out of config).
+          elevatedDefault: "full",
+          sandbox: { mode: "off" },
           maxConcurrent: 4,
         },
         list: [{ id: "main", default: true }],
@@ -879,13 +914,32 @@ export class FlyProvisioner {
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
         controlUi: { allowInsecureAuth: true },
       },
+      channels: {
+        discord: {
+          enabled: true,
+          allowBots: true,
+          groupPolicy: "allowlist",
+          actions: { reactions: true, messages: true },
+          dm: {
+            enabled: true,
+            policy: "allowlist",
+            allowFrom: [],
+          },
+          guilds: {},
+        },
+      },
+      plugins: {
+        entries: {
+          discord: { enabled: true },
+        },
+      },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
     const machineConfig: FlyMachineConfig = {
-      image: this.config.image,
+      image: this.config.image || DEFAULT_IMAGE,
       env: {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
@@ -966,6 +1020,7 @@ export class FlyProvisioner {
 
       // Wait for machine to be started, then install sudo access
       await this.waitForState(appName, machine.id, "started", 120000);
+      await this.waitForChecksPassing(appName, machine.id, 300000);
       await this.installSudoAccess(appName);
 
       const instance = this.mapMachineToInstance(machine, appName);
@@ -1009,6 +1064,45 @@ export class FlyProvisioner {
 
     throw new Error(
       `Timeout waiting for machine ${machineId} to reach state ${targetState}`
+    );
+  }
+
+  /**
+   * Waits until Fly machine checks report passing.
+   *
+   * "started" can happen before the app is actually listening on 0.0.0.0:3000.
+   * This avoids returning control before the gateway is reachable.
+   */
+  private async waitForChecksPassing(
+    appName: string,
+    machineId: string,
+    timeoutMs = 300000
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      const machine = await this.machinesRequest<FlyMachine>(
+        appName,
+        "GET",
+        `/machines/${machineId}`
+      );
+
+      if (machine.state === "destroyed" || machine.state === "stopped") {
+        throw new Error(
+          `Machine ${machineId} is ${machine.state} while waiting for health checks`
+        );
+      }
+
+      const checks = machine.checks ?? [];
+      if (checks.length > 0 && checks.every((check) => check.status === "passing")) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    throw new Error(
+      `Timeout waiting for machine ${machineId} health checks to pass`
     );
   }
 
