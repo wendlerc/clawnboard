@@ -48,7 +48,7 @@ const GATEWAY_TOKEN_METADATA_KEY = "gateway_token";
 
 // Metadata key for storing hidden snapshot IDs (comma-separated)
 const HIDDEN_SNAPSHOTS_METADATA_KEY = "hidden_snapshots";
-const DEFAULT_IMAGE = "ghcr.io/openclaw/clawnboard-moltbot:latest";
+const DEFAULT_IMAGE = "ghcr.io/wendlerc/clawnboard-moltbot:latest";
 
 /**
  * Fly.io provisioner for OpenClaw moltbots.
