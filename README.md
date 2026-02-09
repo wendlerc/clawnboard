@@ -253,6 +253,15 @@ Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to `apps/api/.env`
 
 This usually means the config file is missing or corrupted. Delete and recreate the moltbot — ClawnBoard will generate a fresh config with proper agent and gateway settings.
 
+### OpenClaw browser tools fail to launch
+
+If Playwright browsers are missing in the OpenClaw container, install Chromium via the CLI container:
+
+```bash
+docker compose run --rm openclaw-cli \
+  node /app/node_modules/playwright-core/cli.js install chromium
+```
+
 ### "Pairing required" error
 
 This can happen if the gateway doesn't trust the connection. ClawnBoard's config includes:

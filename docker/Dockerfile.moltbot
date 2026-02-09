@@ -57,4 +57,11 @@ RUN if ! id -u moltbot >/dev/null 2>&1; then useradd -m -s /bin/bash moltbot; fi
       && chmod 0440 /etc/sudoers.d/node; \
     fi
 
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
+
+RUN mkdir -p /home/node/.cache/ms-playwright \
+    && chown -R node:node /home/node/.cache
+
 USER node
+
+RUN node /app/node_modules/playwright-core/cli.js install chromium
