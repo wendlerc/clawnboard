@@ -10,6 +10,7 @@
  *   POST   /api/moltbots/:id/stop    - Stop a running moltbot
  *   POST   /api/moltbots/:id/restart - Restart a moltbot
  *   POST   /api/moltbots/:id/update  - Update to latest OpenClaw version
+ *   POST   /api/moltbots/:id/repair-pairing - Repair gateway device pairing
  */
 
 import { Hono } from "hono";
@@ -348,6 +349,41 @@ moltbotsRouter.post("/:id/update", async (c) => {
         error: {
           code: "FLY_API_ERROR",
           message: error instanceof Error ? error.message : "Failed to update moltbot",
+        },
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Repair gateway device pairing for a moltbot
+ * POST /api/moltbots/:id/repair-pairing
+ *
+ * OpenClaw 2026.2.9+ uses device-based pairing for gateway RPC WebSocket connections.
+ * When an agent regenerates its device identity (e.g. after restart/update), it gets
+ * stuck in "pending approval", breaking cron, browser, and all gateway RPC tools.
+ * This approves pending pairing requests and signals the gateway to reload.
+ * Safe no-op when there are no pending entries.
+ */
+moltbotsRouter.post("/:id/repair-pairing", async (c) => {
+  const id = c.req.param("id");
+
+  try {
+    const provisioner = getProvisioner();
+    await provisioner.repairGatewayPairing(`moltbot-${id}`);
+
+    return c.json({
+      success: true,
+      data: { message: "Gateway pairing repaired successfully" },
+    });
+  } catch (error) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: "FLY_API_ERROR",
+          message: error instanceof Error ? error.message : "Failed to repair gateway pairing",
         },
       },
       500
