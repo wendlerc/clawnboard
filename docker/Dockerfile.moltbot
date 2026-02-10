@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     python3-pip \
     python3-venv \
+    golang-go \
     screen \
     sudo \
     x11-utils \
@@ -47,6 +48,12 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
+
+# Install additional CLI tooling
+RUN git clone https://github.com/ash-openclaw/amail-cli.git /opt/amail-cli \
+    && chmod +x /opt/amail-cli/amail \
+    && ln -sf /opt/amail-cli/amail /usr/local/bin/amail \
+    && GOBIN=/usr/local/bin go install github.com/emersion/hydroxide/cmd/hydroxide@latest
 
 # Ensure the moltbot user exists and has passwordless sudo.
 RUN if ! id -u moltbot >/dev/null 2>&1; then useradd -m -s /bin/bash moltbot; fi \
