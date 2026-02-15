@@ -7,17 +7,20 @@ describe("Constants", () => {
       expect(VM_SPECS).toHaveProperty("1gb");
       expect(VM_SPECS).toHaveProperty("2gb");
       expect(VM_SPECS).toHaveProperty("4gb");
+      expect(VM_SPECS).toHaveProperty("5gb");
     });
 
     it("should have increasing memory for larger sizes", () => {
       expect(VM_SPECS["2gb"].memoryMb).toBeGreaterThan(VM_SPECS["1gb"].memoryMb);
       expect(VM_SPECS["4gb"].memoryMb).toBeGreaterThan(VM_SPECS["2gb"].memoryMb);
+      expect(VM_SPECS["5gb"].memoryMb).toBeGreaterThan(VM_SPECS["4gb"].memoryMb);
     });
 
-    it("should have 2 CPUs for all sizes", () => {
+    it("should have 2 CPUs for 1gb/2gb/4gb, 4 for 5gb", () => {
       expect(VM_SPECS["1gb"].cpus).toBe(2);
       expect(VM_SPECS["2gb"].cpus).toBe(2);
       expect(VM_SPECS["4gb"].cpus).toBe(2);
+      expect(VM_SPECS["5gb"].cpus).toBe(4);
     });
 
     it("should have labels and descriptions for each size", () => {

@@ -9,7 +9,7 @@ export type MoltbotStatus =
   | "destroyed"
   | "error";
 
-export type MoltbotSize = "1gb" | "2gb" | "4gb";
+export type MoltbotSize = "1gb" | "2gb" | "4gb" | "5gb";
 
 export interface Moltbot {
   id: string;

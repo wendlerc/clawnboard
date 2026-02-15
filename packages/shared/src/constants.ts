@@ -19,7 +19,7 @@ export const VM_SPECS = {
   "2gb": {
     cpus: 2,
     memoryMb: 2048,
-    label: "2GB RAM",
+    label: "2GB RAM (Recommended)",
     description: "2 CPU, 2GB RAM, 20GB storage",
     pricePerMonth: "~$14/mo",
   },
@@ -29,6 +29,13 @@ export const VM_SPECS = {
     label: "4GB RAM",
     description: "2 CPU, 4GB RAM, 20GB storage",
     pricePerMonth: "~$23/mo",
+  },
+  "5gb": {
+    cpus: 4,
+    memoryMb: 5120,
+    label: "5GB RAM",
+    description: "4 CPU, 5GB RAM, 20GB storage",
+    pricePerMonth: "~$28/mo",
   },
 } as const;
 

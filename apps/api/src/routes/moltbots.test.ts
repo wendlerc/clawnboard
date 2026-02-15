@@ -11,6 +11,7 @@ vi.mock("@clawnboard/vm-provisioner", () => ({
         status: "started",
         hostname: "test-bot.my-app.fly.dev",
         region: "iad",
+        size: "2gb",
         createdAt: "2024-01-01T00:00:00Z",
       },
     ]),
@@ -24,6 +25,7 @@ vi.mock("@clawnboard/vm-provisioner", () => ({
         status: "started",
         hostname: "test-bot.my-app.fly.dev",
         region: "iad",
+        size: "2gb",
         createdAt: "2024-01-01T00:00:00Z",
       });
     }),
@@ -34,6 +36,7 @@ vi.mock("@clawnboard/vm-provisioner", () => ({
         status: "created",
         hostname: `${config.name}.my-app.fly.dev`,
         region: "iad",
+        size: config.size ?? "2gb",
         createdAt: new Date().toISOString(),
       });
     }),
@@ -45,6 +48,7 @@ vi.mock("@clawnboard/vm-provisioner", () => ({
         status: "starting",
         hostname: "test-bot.my-app.fly.dev",
         region: "iad",
+        size: "2gb",
         createdAt: "2024-01-01T00:00:00Z",
       });
     }),

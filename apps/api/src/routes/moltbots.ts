@@ -38,7 +38,7 @@ const createMoltbotSchema = z.object({
     .min(1)
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
-  size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
+  size: z.enum(["1gb", "2gb", "4gb", "5gb"]).default("2gb"),
   model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
 });
 
@@ -72,7 +72,7 @@ moltbotsRouter.get("/", async (c) => {
       status: instance.status,
       hostname: instance.hostname,
       region: instance.region,
-      size: "2gb" as MoltbotSize, // Fly.io doesn't return size, default to 2GB
+      size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
     }));
@@ -122,7 +122,7 @@ moltbotsRouter.get("/:id", async (c) => {
       status: instance.status,
       hostname: instance.hostname,
       region: instance.region,
-      size: "2gb" as MoltbotSize,
+      size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
     };
@@ -182,7 +182,7 @@ moltbotsRouter.post("/", async (c) => {
       status: instance.status,
       hostname: instance.hostname,
       region: instance.region,
-      size: data.size as MoltbotSize,
+      size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
     };
@@ -349,6 +349,56 @@ moltbotsRouter.post("/:id/update", async (c) => {
         error: {
           code: "FLY_API_ERROR",
           message: error instanceof Error ? error.message : "Failed to update moltbot",
+        },
+      },
+      500
+    );
+  }
+});
+
+const resizeMoltbotSchema = z.object({
+  size: z.enum(["1gb", "2gb", "4gb", "5gb"]),
+});
+
+/**
+ * Resize a moltbot's VM (memory/CPU)
+ * POST /api/moltbots/:id/resize
+ *
+ * Machine will reboot with the new size.
+ */
+moltbotsRouter.post("/:id/resize", async (c) => {
+  const id = c.req.param("id");
+
+  try {
+    const body = await c.req.json();
+    const { size } = resizeMoltbotSchema.parse(body);
+
+    const provisioner = getProvisioner();
+    const instance = await provisioner.resizeMoltbot(id, size);
+
+    return c.json({
+      success: true,
+      data: { id: instance.id, status: instance.status, size },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: error.errors.map((e) => e.message).join(", "),
+          },
+        },
+        400
+      );
+    }
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: "FLY_API_ERROR",
+          message: error instanceof Error ? error.message : "Failed to resize moltbot",
         },
       },
       500
@@ -587,7 +637,7 @@ const deployFromSnapshotSchema = z.object({
     .min(1)
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
-  size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
+  size: z.enum(["1gb", "2gb", "4gb", "5gb"]).default("2gb"),
   model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
   sourceApp: z.string(),  // The app name where the snapshot exists
 });

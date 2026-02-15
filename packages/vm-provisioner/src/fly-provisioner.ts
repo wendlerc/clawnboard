@@ -31,13 +31,14 @@ import { createLogger, type Logger } from "./logger.js";
 const FLY_API_BASE = "https://api.machines.dev/v1";
 const FLY_API_GRAPHQL = "https://api.fly.io/graphql";
 
-// OpenClaw VM sizes - all use shared 2 CPUs since LLM work is external
+// OpenClaw VM sizes - shared CPUs since LLM work is external
 // See: https://docs.openclaw.ai/platforms/fly
-// 2GB RAM is recommended
+// 2GB RAM is recommended. 5GB requires 3 CPUs (Fly.io shared max = 2GB per CPU)
 const SIZE_SPECS = {
   "1gb": { cpu_kind: "shared", cpus: 2, memory_mb: 1024 },
   "2gb": { cpu_kind: "shared", cpus: 2, memory_mb: 2048 },
   "4gb": { cpu_kind: "shared", cpus: 2, memory_mb: 4096 },
+  "5gb": { cpu_kind: "shared", cpus: 4, memory_mb: 5120 },
 } as const;
 
 // Prefix for moltbot app names to identify them
@@ -651,6 +652,43 @@ export class FlyProvisioner {
   }
 
   /**
+   * Resizes a moltbot's VM (memory/CPU).
+   * Machine will reboot with the new size.
+   */
+  async resizeMoltbot(moltbotName: string, size: "1gb" | "2gb" | "4gb" | "5gb"): Promise<MoltbotInstance> {
+    const appName = moltbotName.startsWith(MOLTBOT_APP_PREFIX)
+      ? moltbotName
+      : `${MOLTBOT_APP_PREFIX}${moltbotName}`;
+    const context = { moltbotName, appName, operation: "resize", size };
+
+    this.logger.info(`Resizing moltbot to ${size}: ${moltbotName}`, context);
+
+    const machines = await this.machinesRequest<FlyMachine[]>(appName, "GET", "/machines");
+    if (machines.length === 0) {
+      throw new Error(`No machine found for moltbot: ${moltbotName}`);
+    }
+
+    const machine = machines[0];
+    const machineId = machine.id;
+    const guestSpec = SIZE_SPECS[size];
+
+    const updatedConfig = {
+      ...machine.config,
+      guest: guestSpec,
+    };
+
+    await this.machinesRequest<FlyMachine>(appName, "POST", `/machines/${machineId}`, {
+      config: updatedConfig,
+      skip_launch: false,
+    });
+
+    const moltbot = await this.waitForState(appName, machineId, "started");
+    await this.waitForChecksPassing(appName, machineId, 300000);
+    this.logger.info(`Moltbot resized to ${size}: ${moltbotName}`, context);
+    return moltbot;
+  }
+
+  /**
    * Restarts a moltbot.
    */
   async restartMoltbot(moltbotName: string): Promise<MoltbotInstance> {
@@ -1136,15 +1174,29 @@ export class FlyProvisioner {
       ? appName.slice(MOLTBOT_APP_PREFIX.length)
       : machine.name;
 
+    const size = this.guestToSize(machine.config?.guest);
+
     return {
       id: machine.id,
       name,
       status: this.mapFlyState(machine.state),
       region: machine.region,
+      size,
       createdAt: machine.created_at,
       hostname: `${appName}.fly.dev`,
       privateIp: machine.private_ip || null,
     };
+  }
+
+  /** Maps Fly guest config (memory_mb, cpus) to our size label. Defaults to 2gb if unknown. */
+  private guestToSize(guest?: { memory_mb?: number; cpus?: number }): "1gb" | "2gb" | "4gb" | "5gb" {
+    if (!guest?.memory_mb) return "2gb";
+    const mem = guest.memory_mb;
+    if (mem === 1024) return "1gb";
+    if (mem === 2048) return "2gb";
+    if (mem === 4096) return "4gb";
+    if (mem === 5120) return "5gb";
+    return "2gb";
   }
 
   private mapFlyState(flyState: string): MoltbotStatus {

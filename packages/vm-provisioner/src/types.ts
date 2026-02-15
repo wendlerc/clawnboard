@@ -20,8 +20,8 @@ export interface ProvisionerConfig {
 export interface MoltbotConfig {
   /** Unique name for the moltbot (used as machine name) */
   name: string;
-  /** VM size (affects memory): 1gb, 2gb (recommended), or 4gb */
-  size?: "1gb" | "2gb" | "4gb";
+  /** VM size (affects memory): 1gb, 2gb (recommended), 4gb, or 5gb */
+  size?: "1gb" | "2gb" | "4gb" | "5gb";
   /** Default AI model (e.g., "anthropic/claude-sonnet-4-5") */
   model?: string;
   /** Custom Docker image (default: ghcr.io/wendlerc/clawnboard-moltbot:latest) */
@@ -33,6 +33,8 @@ export interface MoltbotConfig {
 /**
  * A running or stopped moltbot instance.
  */
+export type MoltbotSize = "1gb" | "2gb" | "4gb" | "5gb";
+
 export interface MoltbotInstance {
   /** Fly.io machine ID */
   id: string;
@@ -42,6 +44,8 @@ export interface MoltbotInstance {
   status: MoltbotStatus;
   /** Fly.io region */
   region: string;
+  /** VM size (derived from machine config) */
+  size: MoltbotSize;
   /** ISO timestamp when created */
   createdAt: string;
   /** Public hostname for accessing the OpenClaw Control UI */
