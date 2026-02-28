@@ -441,6 +441,28 @@ When ACP is enabled, ClawnBoard writes an `acp` block into the moltbot's `opencl
 
 The moltbot Docker image includes `acpx` and `@anthropic-ai/claude-code` pre-installed, so agents are ready to use immediately.
 
+#### Authenticating Claude Code on a moltbot
+
+Claude Code needs its own authentication inside the moltbot. You have two options:
+
+**Option A: OAuth login via SSH (uses your Claude Pro/Max subscription)**
+
+SSH into the moltbot and run `claude login`. It will print a URL — open it in your local browser to complete authentication:
+
+```bash
+fly ssh console -a moltbot-<name>
+claude login
+# Copy the URL it prints → open in your browser → approve
+```
+
+This only needs to be done once per moltbot. Credentials are stored on the persistent volume (`/data/.claude-code`) and survive restarts and redeployments.
+
+**Option B: API key (pay-per-token)**
+
+If you set `ANTHROPIC_API_KEY` in your `.env`, Claude Code inside the moltbot will pick it up automatically — no login needed. Note that API key usage is billed per-token, separately from any Claude Pro/Max subscription.
+
+> **Which should I use?** If you're on a Claude Pro or Max plan, use Option A to keep subagent usage within your subscription. If you prefer pay-per-token billing, use Option B.
+
 ---
 
 ## Coming Back Later

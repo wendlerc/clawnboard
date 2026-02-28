@@ -68,6 +68,8 @@ RUN if ! id -u moltbot >/dev/null 2>&1; then useradd -m -s /bin/bash moltbot; fi
       && chmod 0440 /etc/sudoers.d/node; \
     fi
 
+# Store Claude Code credentials on persistent volume so `claude login` survives restarts
+ENV CLAUDE_CONFIG_DIR=/data/.claude-code
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
 
 RUN mkdir -p /home/node/.cache/ms-playwright \
