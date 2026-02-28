@@ -53,7 +53,7 @@ RUN apt-get update && apt-get install -y \
 RUN git clone https://github.com/ash-openclaw/amail-cli.git /opt/amail-cli \
     && chmod +x /opt/amail-cli/amail \
     && ln -sf /opt/amail-cli/amail /usr/local/bin/amail \
-    && GOBIN=/usr/local/bin go install github.com/emersion/hydroxide/cmd/hydroxide@latest
+    && GOBIN=/usr/local/bin go install github.com/emersion/hydroxide/cmd/hydroxide@v0.2.29
 
 # Ensure the moltbot user exists and has passwordless sudo.
 RUN if ! id -u moltbot >/dev/null 2>&1; then useradd -m -s /bin/bash moltbot; fi \
