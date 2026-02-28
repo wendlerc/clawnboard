@@ -1,5 +1,6 @@
 # Dockerfile for Moltbot VMs
 # Extends the published OpenClaw image with additional tooling.
+# Uses :latest - CI workflow has pull: true to always fetch fresh base image.
 
 FROM ghcr.io/openclaw/openclaw:latest
 

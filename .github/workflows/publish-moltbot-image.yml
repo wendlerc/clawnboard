@@ -42,5 +42,6 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.moltbot
+          pull: true  # Always pull latest OpenClaw base image
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/clawnboard-moltbot:${{ env.IMAGE_TAG }}
