@@ -393,6 +393,54 @@ You can also configure channels directly in the Control UI under the **Config** 
 
 For detailed channel setup, see the [OpenClaw documentation](https://docs.openclaw.ai).
 
+### ACP Subagents (Claude Code, Codex, etc.)
+
+Moltbots support [ACP (Agent Client Protocol)](https://docs.openclaw.ai/tools/acp-agents) — a protocol that lets your moltbot spawn external coding agents as subagents. This means your moltbot can delegate coding tasks to Claude Code, Codex CLI, Gemini CLI, and others.
+
+**Claude Code is the default agent.** When you create a moltbot, ACP is enabled with Claude Code as the default — no extra configuration needed.
+
+#### Setting up Claude Code as default
+
+1. **During creation**: The "Create Moltbot" dialog has an **ACP Subagents** section at the bottom. It's enabled by default with Claude Code selected.
+
+2. **On an existing moltbot**: Open the moltbot detail page → find the **ACP Subagents** card → click **Edit** → set Default Agent to "Claude Code" → **Save**.
+
+3. **Via API**:
+   ```bash
+   curl -X PATCH http://localhost:3001/api/moltbots/<id>/acp \
+     -H "Content-Type: application/json" \
+     -d '{"enabled": true, "defaultAgent": "claude", "allowedAgents": ["claude","codex","gemini","opencode","pi"], "maxConcurrentSessions": 8}'
+   ```
+
+#### Available agents
+
+| Agent | ID | Description |
+|-------|----|-------------|
+| Claude Code | `claude` | Anthropic's coding agent |
+| Codex CLI | `codex` | OpenAI's coding agent |
+| Gemini CLI | `gemini` | Google's coding agent |
+| OpenCode | `opencode` | Open-source coding agent |
+| Pi | `pi` | Multi-provider coding agent |
+
+#### How it works
+
+When ACP is enabled, ClawnBoard writes an `acp` block into the moltbot's `openclaw.json`:
+
+```json
+{
+  "acp": {
+    "enabled": true,
+    "dispatch": { "enabled": true },
+    "backend": "acpx",
+    "defaultAgent": "claude",
+    "allowedAgents": ["claude", "codex", "gemini", "opencode", "pi"],
+    "maxConcurrentSessions": 8
+  }
+}
+```
+
+The moltbot Docker image includes `acpx` and `@anthropic-ai/claude-code` pre-installed, so agents are ready to use immediately.
+
 ---
 
 ## Coming Back Later

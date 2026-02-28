@@ -11,6 +11,17 @@ export type MoltbotStatus =
 
 export type MoltbotSize = "1gb" | "2gb" | "4gb" | "5gb";
 
+// ACP (Agent Client Protocol) agent identifiers supported by acpx
+export type AcpAgent = "claude" | "codex" | "gemini" | "opencode" | "pi";
+
+// ACP configuration for a moltbot's openclaw.json
+export interface AcpConfig {
+  enabled: boolean;
+  defaultAgent: AcpAgent;
+  allowedAgents: AcpAgent[];
+  maxConcurrentSessions: number;
+}
+
 export interface Moltbot {
   id: string;
   name: string;
@@ -21,11 +32,14 @@ export interface Moltbot {
   createdAt: string;
   /** Gateway token for accessing OpenClaw dashboard (only returned on creation) */
   gatewayToken?: string;
+  /** ACP subagent configuration */
+  acpConfig?: AcpConfig;
 }
 
 export interface CreateMoltbotInput {
   name: string;
   size?: MoltbotSize;
+  acpConfig?: AcpConfig;
 }
 
 export interface VolumeSnapshot {

@@ -56,6 +56,9 @@ RUN git clone https://github.com/ash-openclaw/amail-cli.git /opt/amail-cli \
     && ln -sf /opt/amail-cli/amail /usr/local/bin/amail \
     && GOBIN=/usr/local/bin go install github.com/emersion/hydroxide/cmd/hydroxide@v0.2.29
 
+# Install ACP tooling for subagent dispatch (Claude Code, Codex, etc.)
+RUN npm install -g acpx@latest @anthropic-ai/claude-code@latest
+
 # Ensure the moltbot user exists and has passwordless sudo.
 RUN if ! id -u moltbot >/dev/null 2>&1; then useradd -m -s /bin/bash moltbot; fi \
     && echo "moltbot ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/moltbot \

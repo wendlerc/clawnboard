@@ -15,6 +15,21 @@ export interface ProvisionerConfig {
 }
 
 /**
+ * ACP (Agent Client Protocol) agent identifiers.
+ */
+export type AcpAgent = "claude" | "codex" | "gemini" | "opencode" | "pi";
+
+/**
+ * ACP (Agent Client Protocol) configuration for openclaw.json.
+ */
+export interface AcpConfig {
+  enabled: boolean;
+  defaultAgent: AcpAgent;
+  allowedAgents: AcpAgent[];
+  maxConcurrentSessions: number;
+}
+
+/**
  * Configuration for creating a new moltbot (OpenClaw instance).
  */
 export interface MoltbotConfig {
@@ -28,6 +43,8 @@ export interface MoltbotConfig {
   image?: string;
   /** Environment variables to pass to OpenClaw */
   env?: Record<string, string>;
+  /** ACP subagent configuration */
+  acpConfig?: AcpConfig;
 }
 
 /**
@@ -54,6 +71,8 @@ export interface MoltbotInstance {
   privateIp: string | null;
   /** Gateway token for accessing the dashboard (only present on creation) */
   gatewayToken?: string;
+  /** ACP subagent configuration */
+  acpConfig?: AcpConfig;
 }
 
 export type MoltbotStatus =

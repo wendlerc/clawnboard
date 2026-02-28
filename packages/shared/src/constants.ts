@@ -76,3 +76,21 @@ export const AI_MODELS = {
 
 export type AIModelId = keyof typeof AI_MODELS;
 export const DEFAULT_MODEL: AIModelId = "anthropic/claude-sonnet-4-5";
+
+// ACP (Agent Client Protocol) agents available for subagent dispatch
+export const ACP_AGENTS = {
+  claude: { label: "Claude Code", description: "Anthropic's coding agent" },
+  codex: { label: "Codex CLI", description: "OpenAI's coding agent" },
+  gemini: { label: "Gemini CLI", description: "Google's coding agent" },
+  opencode: { label: "OpenCode", description: "Open-source coding agent" },
+  pi: { label: "Pi", description: "Multi-provider coding agent" },
+} as const;
+
+import type { AcpConfig } from "./types/moltbot.js";
+
+export const DEFAULT_ACP_CONFIG: AcpConfig = {
+  enabled: true,
+  defaultAgent: "claude",
+  allowedAgents: ["claude", "codex", "gemini", "opencode", "pi"],
+  maxConcurrentSessions: 8,
+};

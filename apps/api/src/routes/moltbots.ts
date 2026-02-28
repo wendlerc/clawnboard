@@ -10,6 +10,7 @@
  *   POST   /api/moltbots/:id/stop    - Stop a running moltbot
  *   POST   /api/moltbots/:id/restart - Restart a moltbot
  *   POST   /api/moltbots/:id/update  - Update to latest OpenClaw version
+ *   PATCH  /api/moltbots/:id/acp    - Update ACP subagent configuration
  */
 
 import { Hono } from "hono";
@@ -32,6 +33,15 @@ function getProvisioner(): FlyProvisioner {
   return new FlyProvisioner({ apiToken, region, image });
 }
 
+const acpConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  defaultAgent: z.enum(["claude", "codex", "gemini", "opencode", "pi"]).default("claude"),
+  allowedAgents: z
+    .array(z.enum(["claude", "codex", "gemini", "opencode", "pi"]))
+    .default(["claude", "codex", "gemini", "opencode", "pi"]),
+  maxConcurrentSessions: z.number().min(1).max(16).default(8),
+});
+
 const createMoltbotSchema = z.object({
   name: z
     .string()
@@ -40,6 +50,7 @@ const createMoltbotSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
   size: z.enum(["1gb", "2gb", "4gb", "5gb"]).default("2gb"),
   model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
+  acpConfig: acpConfigSchema.optional(),
 });
 
 // Get AI provider keys from environment
@@ -75,6 +86,7 @@ moltbotsRouter.get("/", async (c) => {
       size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
+      acpConfig: instance.acpConfig,
     }));
 
     return c.json({
@@ -125,6 +137,7 @@ moltbotsRouter.get("/:id", async (c) => {
       size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
+      acpConfig: instance.acpConfig,
     };
 
     return c.json({
@@ -174,6 +187,7 @@ moltbotsRouter.post("/", async (c) => {
       size: data.size,
       model: data.model,
       env: aiEnv,
+      acpConfig: data.acpConfig,
     });
 
     const moltbot: Moltbot = {
@@ -185,6 +199,7 @@ moltbotsRouter.post("/", async (c) => {
       size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
+      acpConfig: instance.acpConfig,
     };
 
     return c.json(
@@ -440,6 +455,53 @@ moltbotsRouter.post("/:id/install-sudo", async (c) => {
 });
 
 /**
+ * Update ACP configuration for a moltbot
+ * PATCH /api/moltbots/:id/acp
+ *
+ * Updates ACP config in both metadata and openclaw.json.
+ * Moltbot must be running for the SSH update to work.
+ */
+moltbotsRouter.patch("/:id/acp", async (c) => {
+  const id = c.req.param("id");
+
+  try {
+    const body = await c.req.json();
+    const { acpConfig } = z.object({ acpConfig: acpConfigSchema }).parse(body);
+
+    const provisioner = getProvisioner();
+    await provisioner.updateAcpConfig(id, acpConfig);
+
+    return c.json({
+      success: true,
+      data: { acpConfig },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: error.errors.map((e) => e.message).join(", "),
+          },
+        },
+        400
+      );
+    }
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: "FLY_API_ERROR",
+          message: error instanceof Error ? error.message : "Failed to update ACP config",
+        },
+      },
+      500
+    );
+  }
+});
+
+/**
  * List snapshots for a moltbot
  * GET /api/moltbots/:id/snapshots
  */
@@ -640,6 +702,7 @@ const deployFromSnapshotSchema = z.object({
   size: z.enum(["1gb", "2gb", "4gb", "5gb"]).default("2gb"),
   model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
   sourceApp: z.string(),  // The app name where the snapshot exists
+  acpConfig: acpConfigSchema.optional(),
 });
 
 /**
@@ -674,6 +737,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
       size: data.size,
       model: data.model,
       env: aiEnv,
+      acpConfig: data.acpConfig,
     });
 
     const moltbot: Moltbot = {
@@ -682,9 +746,10 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
       status: instance.status,
       hostname: instance.hostname,
       region: instance.region,
-      size: data.size as MoltbotSize,
+      size: instance.size,
       createdAt: instance.createdAt,
       gatewayToken: instance.gatewayToken,
+      acpConfig: instance.acpConfig,
     };
 
     return c.json(

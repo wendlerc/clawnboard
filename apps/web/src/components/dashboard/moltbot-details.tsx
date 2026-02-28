@@ -40,8 +40,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { Moltbot, MoltbotStatus, VolumeSnapshot } from "@clawnboard/shared";
-import { VM_SPECS } from "@clawnboard/shared";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import type { Moltbot, MoltbotStatus, VolumeSnapshot, AcpAgent, AcpConfig } from "@clawnboard/shared";
+import { VM_SPECS, ACP_AGENTS } from "@clawnboard/shared";
 import { SnapshotList } from "./snapshot-list";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -74,6 +83,9 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
   const [creatingSnapshot, setCreatingSnapshot] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
   const [troubleshootingOpen, setTroubleshootingOpen] = useState(false);
+  const [acpEditing, setAcpEditing] = useState(false);
+  const [acpConfig, setAcpConfig] = useState<AcpConfig | null>(null);
+  const [acpSaving, setAcpSaving] = useState(false);
 
   const checkServerHealth = async (hostname: string) => {
     try {
@@ -98,6 +110,9 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
         const data = await res.json();
         if (data.success) {
           setMoltbot(data.data);
+          if (data.data.acpConfig && !acpEditing) {
+            setAcpConfig(data.data.acpConfig);
+          }
           if (data.data.status === 'started') {
             checkServerHealth(data.data.hostname);
           } else {
@@ -214,6 +229,26 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
     const data = await res.json();
     if (data.success) {
       setSnapshots((prev) => prev.filter((s) => s.id !== snapshotId));
+    }
+  };
+
+  const handleSaveAcp = async () => {
+    if (!acpConfig) return;
+    setAcpSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/api/moltbots/${moltbotId}/acp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acpConfig }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAcpEditing(false);
+      }
+    } catch (err) {
+      console.error("Failed to update ACP config:", err);
+    } finally {
+      setAcpSaving(false);
     }
   };
 
@@ -422,6 +457,120 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* ACP Subagents */}
+      {(acpConfig || moltbot.acpConfig) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                ACP Subagents
+              </CardTitle>
+              {acpConfig && !acpEditing && (
+                <Button size="sm" variant="outline" onClick={() => setAcpEditing(true)} disabled={!isRunning}>
+                  Edit
+                </Button>
+              )}
+            </div>
+            <CardDescription>
+              Coding agents dispatched as subagents via ACP
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {acpEditing && acpConfig ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Enabled</Label>
+                  <Switch
+                    checked={acpConfig.enabled}
+                    onCheckedChange={(enabled) => setAcpConfig({ ...acpConfig, enabled })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Default Agent</Label>
+                  <Select
+                    value={acpConfig.defaultAgent}
+                    onValueChange={(v) => setAcpConfig({ ...acpConfig, defaultAgent: v as AcpAgent })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(ACP_AGENTS) as [AcpAgent, (typeof ACP_AGENTS)[AcpAgent]][]).map(
+                        ([key, agent]) => (
+                          <SelectItem key={key} value={key}>{agent.label}</SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Allowed Agents</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Object.entries(ACP_AGENTS) as [AcpAgent, (typeof ACP_AGENTS)[AcpAgent]][]).map(
+                      ([key, agent]) => (
+                        <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-input"
+                            checked={acpConfig.allowedAgents.includes(key)}
+                            onChange={(e) => {
+                              const newAllowed = e.target.checked
+                                ? [...acpConfig.allowedAgents, key]
+                                : acpConfig.allowedAgents.filter((a) => a !== key);
+                              setAcpConfig({ ...acpConfig, allowedAgents: newAllowed });
+                            }}
+                          />
+                          {agent.label}
+                        </label>
+                      )
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={handleSaveAcp} disabled={acpSaving}>
+                    {acpSaving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setAcpEditing(false);
+                    if (moltbot?.acpConfig) setAcpConfig(moltbot.acpConfig);
+                  }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : acpConfig ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant={acpConfig.enabled ? "success" : "secondary"}>
+                    {acpConfig.enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Default Agent</span>
+                  <span className="font-medium">
+                    {ACP_AGENTS[acpConfig.defaultAgent as AcpAgent]?.label || acpConfig.defaultAgent}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Allowed Agents</span>
+                  <span className="font-medium">
+                    {acpConfig.allowedAgents.length} of {Object.keys(ACP_AGENTS).length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Max Sessions</span>
+                  <span className="font-medium">{acpConfig.maxConcurrentSessions}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                ACP not configured. Recreate with ACP enabled to use subagents.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Snapshots */}
       <Card>

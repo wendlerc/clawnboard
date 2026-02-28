@@ -20,6 +20,7 @@ import type {
   MoltbotConfig,
   MoltbotInstance,
   MoltbotStatus,
+  AcpConfig,
   FlyMachine,
   FlyMachineCreateRequest,
   FlyMachineConfig,
@@ -49,6 +50,9 @@ const GATEWAY_TOKEN_METADATA_KEY = "gateway_token";
 
 // Metadata key for storing hidden snapshot IDs (comma-separated)
 const HIDDEN_SNAPSHOTS_METADATA_KEY = "hidden_snapshots";
+
+// Metadata key for storing ACP configuration
+const ACP_CONFIG_METADATA_KEY = "acp_config";
 const DEFAULT_IMAGE = "ghcr.io/wendlerc/clawnboard-moltbot:latest";
 
 /**
@@ -340,30 +344,45 @@ export class FlyProvisioner {
             cdpPort: 18800,
             color: "#FF4500",
           },
-      // Enable Discord integration defaults. Token should come from env var
-      // (e.g. DISCORD_BOT_TOKEN via Fly secrets), not from this JSON.
-      channels: {
-        discord: {
-          enabled: true,
-          allowBots: true,
-          groupPolicy: "allowlist",
-          actions: { reactions: true, messages: true },
-          dm: {
+        },
+        // Enable Discord integration defaults. Token should come from env var
+        // (e.g. DISCORD_BOT_TOKEN via Fly secrets), not from this JSON.
+        channels: {
+          discord: {
             enabled: true,
-            policy: "allowlist",
-            // Intentionally empty by default; populate with Discord user IDs.
-            allowFrom: [],
+            allowBots: true,
+            groupPolicy: "allowlist",
+            actions: { reactions: true, messages: true },
+            dm: {
+              enabled: true,
+              policy: "allowlist",
+              // Intentionally empty by default; populate with Discord user IDs.
+              allowFrom: [],
+            },
+            // Intentionally empty by default; populate with guild/channel allowlist.
+            guilds: {},
           },
-          // Intentionally empty by default; populate with guild/channel allowlist.
-          guilds: {},
         },
-      },
-      plugins: {
-        entries: {
-          discord: { enabled: true },
+        plugins: {
+          entries: {
+            discord: { enabled: true },
+          },
         },
+        meta: { lastTouchedVersion: "2026.1.29" },
       },
-      meta: { lastTouchedVersion: "2026.1.29" },
+      // ACP subagent configuration (Claude Code, Codex, etc.)
+      ...(config.acpConfig?.enabled
+        ? {
+            acp: {
+              enabled: true,
+              dispatch: { enabled: true },
+              backend: "acpx",
+              defaultAgent: config.acpConfig.defaultAgent,
+              allowedAgents: config.acpConfig.allowedAgents,
+              maxConcurrentSessions: config.acpConfig.maxConcurrentSessions,
+            },
+          }
+        : {}),
     };
 
     // Escape single quotes in JSON for shell
@@ -456,14 +475,22 @@ export class FlyProvisioner {
       await this.setMachineMetadata(appName, machine.id, GATEWAY_TOKEN_METADATA_KEY, gatewayToken);
       this.logger.info(`Gateway token stored in metadata`, { ...context, machineId: machine.id });
 
+      // Store ACP config in metadata if provided
+      if (config.acpConfig) {
+        await this.setMachineMetadata(appName, machine.id, ACP_CONFIG_METADATA_KEY, JSON.stringify(config.acpConfig));
+        this.logger.info(`ACP config stored in metadata`, { ...context, machineId: machine.id });
+      }
+
       // Wait for machine to be started, then install sudo access
       // SSH requires the machine to be running
       await this.waitForState(appName, machine.id, "started", 120000);
       await this.waitForChecksPassing(appName, machine.id, 300000);
       await this.installSudoAccess(appName);
+      await this.repairGatewayPairing(appName);
 
       const instance = this.mapMachineToInstance(machine, appName);
       instance.gatewayToken = gatewayToken;
+      instance.acpConfig = config.acpConfig;
       return instance;
     } catch (error) {
       // Clean up the app if machine creation fails
@@ -495,9 +522,16 @@ export class FlyProvisioner {
       const machine = machines[0];
       const instance = this.mapMachineToInstance(machine, appName);
 
-      // Fetch gateway token from metadata
+      // Fetch gateway token and ACP config from metadata
       const metadata = await this.getMachineMetadata(appName, machine.id);
       instance.gatewayToken = metadata[GATEWAY_TOKEN_METADATA_KEY];
+      if (metadata[ACP_CONFIG_METADATA_KEY]) {
+        try {
+          instance.acpConfig = JSON.parse(metadata[ACP_CONFIG_METADATA_KEY]);
+        } catch {
+          // Invalid ACP config in metadata, ignore
+        }
+      }
 
       return instance;
     } catch (error) {
@@ -523,9 +557,16 @@ export class FlyProvisioner {
           const machine = machines[0];
           const instance = this.mapMachineToInstance(machine, app.name);
 
-          // Fetch gateway token from metadata
+          // Fetch gateway token and ACP config from metadata
           const metadata = await this.getMachineMetadata(app.name, machine.id);
           instance.gatewayToken = metadata[GATEWAY_TOKEN_METADATA_KEY];
+          if (metadata[ACP_CONFIG_METADATA_KEY]) {
+            try {
+              instance.acpConfig = JSON.parse(metadata[ACP_CONFIG_METADATA_KEY]);
+            } catch {
+              // Invalid ACP config in metadata, ignore
+            }
+          }
 
           moltbots.push(instance);
         }
@@ -560,6 +601,7 @@ export class FlyProvisioner {
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
+    await this.repairGatewayPairing(appName);
     this.logger.info(`Moltbot started: ${moltbotName}`, context);
     return moltbot;
   }
@@ -647,6 +689,7 @@ export class FlyProvisioner {
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
+    await this.repairGatewayPairing(appName);
     this.logger.info(`Moltbot updated: ${moltbotName}`, context);
     return moltbot;
   }
@@ -711,6 +754,7 @@ export class FlyProvisioner {
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
+    await this.repairGatewayPairing(appName);
     this.logger.info(`Moltbot restarted: ${moltbotName}`, context);
     return moltbot;
   }
@@ -883,9 +927,10 @@ export class FlyProvisioner {
     snapshotId: string;
     sourceAppName: string;  // App where the snapshot exists
     newName: string;
-    size?: "1gb" | "2gb" | "4gb";
+    size?: "1gb" | "2gb" | "4gb" | "5gb";
     model?: string;
     env?: Record<string, string>;
+    acpConfig?: AcpConfig;
   }): Promise<MoltbotInstance> {
     const appName = `${MOLTBOT_APP_PREFIX}${config.newName}`;
     const context = {
@@ -975,26 +1020,41 @@ export class FlyProvisioner {
             cdpPort: 18800,
             color: "#FF4500",
           },
-      channels: {
-        discord: {
-          enabled: true,
-          allowBots: true,
-          groupPolicy: "allowlist",
-          actions: { reactions: true, messages: true },
-          dm: {
+        },
+        channels: {
+          discord: {
             enabled: true,
-            policy: "allowlist",
-            allowFrom: [],
+            allowBots: true,
+            groupPolicy: "allowlist",
+            actions: { reactions: true, messages: true },
+            dm: {
+              enabled: true,
+              policy: "allowlist",
+              allowFrom: [],
+            },
+            guilds: {},
           },
-          guilds: {},
         },
-      },
-      plugins: {
-        entries: {
-          discord: { enabled: true },
+        plugins: {
+          entries: {
+            discord: { enabled: true },
+          },
         },
+        meta: { lastTouchedVersion: "2026.1.29" },
       },
-      meta: { lastTouchedVersion: "2026.1.29" },
+      // ACP subagent configuration (Claude Code, Codex, etc.)
+      ...(config.acpConfig?.enabled
+        ? {
+            acp: {
+              enabled: true,
+              dispatch: { enabled: true },
+              backend: "acpx",
+              defaultAgent: config.acpConfig.defaultAgent,
+              allowedAgents: config.acpConfig.allowedAgents,
+              maxConcurrentSessions: config.acpConfig.maxConcurrentSessions,
+            },
+          }
+        : {}),
     };
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
@@ -1080,13 +1140,21 @@ export class FlyProvisioner {
       await this.setMachineMetadata(appName, machine.id, GATEWAY_TOKEN_METADATA_KEY, gatewayToken);
       this.logger.info(`Gateway token stored in metadata`, { ...context, machineId: machine.id });
 
+      // Store ACP config in metadata if provided
+      if (config.acpConfig) {
+        await this.setMachineMetadata(appName, machine.id, ACP_CONFIG_METADATA_KEY, JSON.stringify(config.acpConfig));
+        this.logger.info(`ACP config stored in metadata`, { ...context, machineId: machine.id });
+      }
+
       // Wait for machine to be started, then install sudo access
       await this.waitForState(appName, machine.id, "started", 120000);
       await this.waitForChecksPassing(appName, machine.id, 300000);
       await this.installSudoAccess(appName);
+      await this.repairGatewayPairing(appName);
 
       const instance = this.mapMachineToInstance(machine, appName);
       instance.gatewayToken = gatewayToken;
+      instance.acpConfig = config.acpConfig;
       return instance;
     } catch (error) {
       // Clean up the app if machine creation fails
@@ -1210,6 +1278,151 @@ export class FlyProvisioner {
       destroyed: "destroyed",
     };
     return stateMap[flyState] || "stopped";
+  }
+
+  /**
+   * Updates the ACP configuration for an existing moltbot.
+   * Updates both metadata (for dashboard retrieval) and openclaw.json on disk (via SSH).
+   * The moltbot must be running for the SSH command to work.
+   */
+  async updateAcpConfig(moltbotName: string, acpConfig: AcpConfig): Promise<void> {
+    const appName = moltbotName.startsWith(MOLTBOT_APP_PREFIX)
+      ? moltbotName
+      : `${MOLTBOT_APP_PREFIX}${moltbotName}`;
+    const context = { moltbotName, appName, operation: "update-acp-config" };
+
+    this.logger.info(`Updating ACP config for: ${moltbotName}`, context);
+
+    const machines = await this.machinesRequest<FlyMachine[]>(appName, "GET", "/machines");
+    if (machines.length === 0) {
+      throw new Error(`No machine found for moltbot: ${moltbotName}`);
+    }
+
+    const machineId = machines[0].id;
+
+    // Store in metadata
+    await this.setMachineMetadata(appName, machineId, ACP_CONFIG_METADATA_KEY, JSON.stringify(acpConfig));
+
+    // Update openclaw.json on the volume via SSH
+    const acpBlock = acpConfig.enabled
+      ? JSON.stringify({
+          enabled: true,
+          dispatch: { enabled: true },
+          backend: "acpx",
+          defaultAgent: acpConfig.defaultAgent,
+          allowedAgents: acpConfig.allowedAgents,
+          maxConcurrentSessions: acpConfig.maxConcurrentSessions,
+        })
+      : "null";
+
+    // Base64-encode the script to avoid shell escaping issues
+    const script = `const fs=require('fs');const p='/data/openclaw.json';const c=JSON.parse(fs.readFileSync(p,'utf8'));const a=${acpBlock};if(a){c.acp=a}else{delete c.acp}fs.writeFileSync(p,JSON.stringify(c,null,2));console.log('ACP config updated');`;
+    const b64 = Buffer.from(script).toString("base64");
+
+    try {
+      await execAsync(
+        `fly ssh console -a ${appName} -C "echo '${b64}' | base64 -d | node"`,
+        { timeout: 30000 }
+      );
+      this.logger.info(`ACP config updated in openclaw.json`, context);
+    } catch (error) {
+      this.logger.error(
+        `Failed to update ACP config in openclaw.json (metadata was updated)`,
+        error instanceof Error ? error : new Error(String(error)),
+        context
+      );
+      // Non-fatal: metadata is updated, user can restart to pick up config
+    }
+  }
+
+  /**
+   * Repairs gateway device pairing after lifecycle events.
+   * OpenClaw 2026.2.9+ requires agents to be "paired" with the gateway.
+   * After restart/update, the agent gets a new device identity that needs approval.
+   * This auto-approves pending pairings via SSH.
+   *
+   * Cherry-picked from andyrdt/clawnboard.
+   */
+  private async repairGatewayPairing(appName: string): Promise<void> {
+    const context = { appName, operation: "repair-gateway-pairing" };
+
+    const script = `
+const fs = require('fs');
+const crypto = require('crypto');
+
+const pendingPath = '/data/devices/pending.json';
+const pairedPath = '/data/devices/paired.json';
+const authPath = '/data/identity/device-auth.json';
+
+// Read pending devices
+let pending;
+try {
+  pending = JSON.parse(fs.readFileSync(pendingPath, 'utf8'));
+} catch { pending = []; }
+if (!Array.isArray(pending) || pending.length === 0) {
+  console.log('No pending devices');
+  process.exit(0);
+}
+
+// Read existing paired devices
+let paired;
+try {
+  paired = JSON.parse(fs.readFileSync(pairedPath, 'utf8'));
+} catch { paired = []; }
+
+// Approve all pending devices
+for (const device of pending) {
+  const token = crypto.randomUUID();
+  paired.push({ ...device, token, approvedAt: new Date().toISOString() });
+  // Write auth for the most recent device (the current agent)
+  fs.mkdirSync('/data/identity', { recursive: true });
+  fs.writeFileSync(authPath, JSON.stringify({ deviceId: device.deviceId, token }));
+}
+
+// Save paired and clear pending
+fs.writeFileSync(pairedPath, JSON.stringify(paired, null, 2));
+fs.writeFileSync(pendingPath, '[]');
+
+// Fix ownership
+try {
+  require('child_process').execSync('chown -R node:node /data/devices /data/identity 2>/dev/null || true');
+} catch {}
+
+// Signal gateway to reload config
+try {
+  const pid = require('child_process').execSync("pgrep -f 'node dist/index.js gateway'").toString().trim();
+  if (pid) process.kill(parseInt(pid), 'SIGUSR1');
+} catch {}
+
+console.log('Approved ' + pending.length + ' pending device(s)');
+`;
+
+    const b64 = Buffer.from(script.trim()).toString("base64");
+    const maxRetries = 5;
+    const retryDelayMs = 10000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await execAsync(
+          `fly ssh console -a ${appName} -C "echo '${b64}' | base64 -d | node"`,
+          { timeout: 30000 }
+        );
+        this.logger.info(`Gateway pairing repaired`, context);
+        return;
+      } catch (error) {
+        if (attempt < maxRetries) {
+          this.logger.info(`Repair pairing attempt ${attempt} failed, retrying...`, context);
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        } else {
+          // Non-fatal: log and continue
+          this.logger.error(
+            `Failed to repair gateway pairing after ${maxRetries} attempts (non-fatal)`,
+            error instanceof Error ? error : new Error(String(error)),
+            context
+          );
+        }
+      }
+    }
   }
 
   /**

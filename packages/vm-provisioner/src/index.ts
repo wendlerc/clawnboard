@@ -15,6 +15,8 @@ export type { Logger, LogLevel, LogContext, LogEntry } from "./logger.js";
 
 // Types
 export type {
+  AcpAgent,
+  AcpConfig,
   MoltbotConfig,
   MoltbotInstance,
   MoltbotStatus,

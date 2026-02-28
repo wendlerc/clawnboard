@@ -22,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VM_SPECS, AI_MODELS, DEFAULT_MODEL } from "@clawnboard/shared";
-import type { MoltbotSize, AIModelId } from "@clawnboard/shared";
+import { Switch } from "@/components/ui/switch";
+import { VM_SPECS, AI_MODELS, DEFAULT_MODEL, ACP_AGENTS } from "@clawnboard/shared";
+import type { MoltbotSize, AIModelId, AcpAgent, AcpConfig } from "@clawnboard/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -46,6 +47,13 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderStatus>({ anthropic: false, openai: false, openrouter: false });
+
+  // ACP state
+  const [acpEnabled, setAcpEnabled] = useState(true);
+  const [acpDefaultAgent, setAcpDefaultAgent] = useState<AcpAgent>("claude");
+  const [acpAllowedAgents, setAcpAllowedAgents] = useState<AcpAgent[]>(
+    ["claude", "codex", "gemini", "opencode", "pi"]
+  );
 
   // Fetch available providers when dialog opens
   useEffect(() => {
@@ -78,11 +86,20 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
     setIsLoading(true);
     setError(null);
 
+    const acpConfig: AcpConfig | undefined = acpEnabled
+      ? {
+          enabled: true,
+          defaultAgent: acpDefaultAgent,
+          allowedAgents: acpAllowedAgents,
+          maxConcurrentSessions: 8,
+        }
+      : undefined;
+
     try {
       const res = await fetch(`${API_URL}/api/moltbots`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, size, model }),
+        body: JSON.stringify({ name, size, model, acpConfig }),
       });
       const data = await res.json();
 
@@ -113,7 +130,7 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[475px]">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Bot className="h-5 w-5 text-primary" />
@@ -189,6 +206,74 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* ACP Subagents */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>ACP Subagents</Label>
+                <p className="text-xs text-muted-foreground">
+                  Enable coding agents (Claude Code, Codex, etc.) as subagents
+                </p>
+              </div>
+              <Switch checked={acpEnabled} onCheckedChange={setAcpEnabled} />
+            </div>
+
+            {acpEnabled && (
+              <div className="space-y-3 pl-1">
+                <div className="space-y-1.5">
+                  <Label>Default Agent</Label>
+                  <Select value={acpDefaultAgent} onValueChange={(v) => setAcpDefaultAgent(v as AcpAgent)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(ACP_AGENTS) as [AcpAgent, (typeof ACP_AGENTS)[AcpAgent]][]).map(
+                        ([key, agent]) => (
+                          <SelectItem
+                            key={key}
+                            value={key}
+                            disabled={!acpAllowedAgents.includes(key)}
+                          >
+                            <span className="font-medium">{agent.label}</span>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Allowed Agents</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Object.entries(ACP_AGENTS) as [AcpAgent, (typeof ACP_AGENTS)[AcpAgent]][]).map(
+                      ([key, agent]) => (
+                        <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-input"
+                            checked={acpAllowedAgents.includes(key)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAcpAllowedAgents((prev) => [...prev, key]);
+                              } else {
+                                const remaining = acpAllowedAgents.filter((a) => a !== key);
+                                setAcpAllowedAgents(remaining);
+                                if (acpDefaultAgent === key && remaining.length > 0) {
+                                  setAcpDefaultAgent(remaining[0]);
+                                }
+                              }
+                            }}
+                          />
+                          {agent.label}
+                        </label>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (
