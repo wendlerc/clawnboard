@@ -128,7 +128,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
       }
     };
     fetchMoltbot();
-    const interval = setInterval(fetchMoltbot, 5000);
+    const interval = setInterval(fetchMoltbot, 15000);
     return () => clearInterval(interval);
   }, [moltbotId]);
 

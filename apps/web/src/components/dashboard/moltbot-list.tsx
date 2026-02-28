@@ -52,8 +52,8 @@ export function MoltbotList() {
 
   useEffect(() => {
     fetchMoltbots();
-    // Poll for updates every 5 seconds
-    const interval = setInterval(fetchMoltbots, 5000);
+    // Poll for updates every 15 seconds (avoids Fly.io rate limits)
+    const interval = setInterval(fetchMoltbots, 15000);
     return () => clearInterval(interval);
   }, []);
 
