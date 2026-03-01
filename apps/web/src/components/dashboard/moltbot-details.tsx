@@ -321,7 +321,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
               </p>
             </div>
             <a href={controlUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-              <Button size="lg" disabled={!isReady} className="min-w-[180px]">
+              <Button size="lg" disabled={!isRunning} className="min-w-[180px]">
                 {displayStatus.loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (

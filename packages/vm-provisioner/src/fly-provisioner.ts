@@ -319,7 +319,12 @@ export class FlyProvisioner {
         mode: "local",
         bind: "lan",
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: { allowInsecureAuth: true },
+        controlUi: {
+          allowInsecureAuth: true,
+          dangerouslyAllowHostHeaderOriginFallback: true,
+          // Skip browser device pairing - token in URL is sufficient for personal deployments
+          dangerouslyDisableDeviceAuth: true,
+        },
       },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
@@ -879,7 +884,12 @@ export class FlyProvisioner {
         mode: "local",
         bind: "lan",
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: { allowInsecureAuth: true },
+        controlUi: {
+          allowInsecureAuth: true,
+          dangerouslyAllowHostHeaderOriginFallback: true,
+          // Skip browser device pairing - token in URL is sufficient for personal deployments
+          dangerouslyDisableDeviceAuth: true,
+        },
       },
       meta: { lastTouchedVersion: "2026.1.29" },
     };
@@ -1081,75 +1091,80 @@ export class FlyProvisioner {
     this.logger.info(`Repairing gateway pairing`, context);
 
     // Node.js script to run on the machine via SSH
-    // Reads pending.json, approves any pending entries, updates device-auth, signals gateway
+    // 1. Patches config to disable browser device pairing (fixes "pairing required" for Control UI)
+    // 2. Approves any pending agent devices
     // Base64-encoded to avoid shell quoting issues with nested quotes
     const script = `
 const fs = require("fs");
 const crypto = require("crypto");
 
+const CONFIG_PATH = "/data/openclaw.json";
 const PENDING_PATH = "/data/devices/pending.json";
 const PAIRED_PATH = "/data/devices/paired.json";
 const DEVICE_AUTH_PATH = "/data/identity/device-auth.json";
 
+// 1. Patch config: add dangerouslyDisableDeviceAuth to skip browser pairing
+try {
+  const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  if (!config.gateway) config.gateway = {};
+  if (!config.gateway.controlUi) config.gateway.controlUi = {};
+  if (config.gateway.controlUi.dangerouslyDisableDeviceAuth !== true) {
+    config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+    console.log("Patched config: disabled browser device pairing");
+  }
+} catch (e) { console.error("Config patch:", e.message); }
+
 // Read pending entries
 let pending = {};
-try { pending = JSON.parse(fs.readFileSync(PENDING_PATH, "utf8")); } catch { process.exit(0); }
+try { pending = JSON.parse(fs.readFileSync(PENDING_PATH, "utf8")); } catch {}
 
 const keys = Object.keys(pending);
-if (keys.length === 0) { process.exit(0); }
-
-console.log("Found " + keys.length + " pending pairing(s), approving...");
-
-// Read existing paired entries
-let paired = {};
-try { paired = JSON.parse(fs.readFileSync(PAIRED_PATH, "utf8")); } catch {}
-
-// Approve each pending entry
-const now = Date.now();
-for (const deviceId of keys) {
-  const entry = pending[deviceId];
-  const role = entry.role || "operator";
-  const scopes = entry.scopes || ["operator.admin", "operator.approvals", "operator.pairing"];
-  const token = crypto.randomBytes(16).toString("hex");
-
-  paired[deviceId] = {
-    ...entry,
-    tokens: {
-      [role]: { token, role, scopes, createdAtMs: now }
-    },
-    createdAtMs: entry.createdAtMs || now,
-    approvedAtMs: now,
-  };
-
-  // Update device-auth for this device
-  try {
-    fs.mkdirSync("/data/identity", { recursive: true });
-    fs.writeFileSync(DEVICE_AUTH_PATH, JSON.stringify({
-      version: 1,
-      deviceId,
-      tokens: { [role]: { token, role, scopes, updatedAtMs: now } }
-    }, null, 2));
-  } catch (e) { console.error("Failed to write device-auth:", e.message); }
+if (keys.length > 0) {
+  console.log("Found " + keys.length + " pending pairing(s), approving...");
+  let paired = {};
+  try { paired = JSON.parse(fs.readFileSync(PAIRED_PATH, "utf8")); } catch {}
+  const now = Date.now();
+  for (const deviceId of keys) {
+    const entry = pending[deviceId];
+    const role = entry.role || "operator";
+    const scopes = entry.scopes || ["operator.admin", "operator.approvals", "operator.pairing"];
+    const token = crypto.randomBytes(16).toString("hex");
+    paired[deviceId] = {
+      ...entry,
+      tokens: { [role]: { token, role, scopes, createdAtMs: now } },
+      createdAtMs: entry.createdAtMs || now,
+      approvedAtMs: now,
+    };
+    try {
+      fs.mkdirSync("/data/identity", { recursive: true });
+      fs.writeFileSync(DEVICE_AUTH_PATH, JSON.stringify({
+        version: 1,
+        deviceId,
+        tokens: { [role]: { token, role, scopes, updatedAtMs: now } }
+      }, null, 2));
+    } catch (e) { console.error("Failed to write device-auth:", e.message); }
+  }
+  fs.mkdirSync("/data/devices", { recursive: true });
+  fs.writeFileSync(PAIRED_PATH, JSON.stringify(paired, null, 2));
+  fs.writeFileSync(PENDING_PATH, JSON.stringify({}, null, 2));
+  console.log("Approved " + keys.length + " device(s)");
 }
-
-// Write updated paired entries
-fs.mkdirSync("/data/devices", { recursive: true });
-fs.writeFileSync(PAIRED_PATH, JSON.stringify(paired, null, 2));
-
-// Clear pending
-fs.writeFileSync(PENDING_PATH, JSON.stringify({}, null, 2));
 
 // Fix ownership - SSH runs as root but gateway runs as node
 const { execSync } = require("child_process");
-try { execSync("chown -R node:node /data/devices /data/identity"); } catch {}
+try {
+  execSync("chown -R node:node /data/devices /data/identity");
+  execSync("chown node:node /data/openclaw.json");
+} catch {}
 
-// Signal gateway to reload (SIGUSR1)
+// Signal gateway to reload (picks up config changes)
 try {
   const pid = execSync("pgrep -f 'node.*gateway' || true").toString().trim().split("\\n")[0];
   if (pid) { process.kill(parseInt(pid), "SIGUSR1"); console.log("Sent SIGUSR1 to gateway pid " + pid); }
 } catch (e) { console.error("Failed to signal gateway:", e.message); }
 
-console.log("Gateway pairing repaired for " + keys.length + " device(s)");
+console.log("Repair complete");
 `.trim();
 
     const scriptB64 = Buffer.from(script).toString("base64");
