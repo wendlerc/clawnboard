@@ -357,6 +357,27 @@ export class FlyProvisioner {
     // Escape single quotes in JSON for shell
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
+    // Claude Code bootstrap snippet — appended to BOOTSTRAP.md on first boot
+    const bootstrapSnippet = `
+<!-- clawnboard-claude-code -->
+## Set Up Claude Code (Coding Subagent)
+
+You have Claude Code pre-installed — it lets you spawn a coding agent for programming tasks.
+
+To activate it, the owner needs to authenticate once:
+
+1. Tell them to run in a terminal:
+   \`\`\`
+   fly ssh console -a ${appName}
+   claude auth login
+   \`\`\`
+2. It prints a URL — they open it in their browser and log in with their Claude account
+3. **Important:** The URL may wrap across multiple lines. They must copy the entire URL as one line, or they'll get an "Invalid OAuth Request" error.
+4. Once done, credentials persist across restarts — no need to redo.
+
+If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses that instead — no login needed.
+`.replace(/'/g, "'\\''");
+
     // Scale Node heap to ~75% of instance RAM to avoid OOM
     const sizeKey = config.size || "2gb";
     const heapMb = Math.floor(SIZE_SPECS[sizeKey].memory_mb * 0.75);
@@ -414,9 +435,8 @@ export class FlyProvisioner {
           cmd: [
             "/bin/sh",
             "-c",
-            // Create config file if it doesn't exist, then start gateway
-            // Config structure matches: https://docs.openclaw.ai/platforms/fly
-            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            // Create config file if it doesn't exist, append Claude Code bootstrap snippet, then start gateway
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
@@ -981,6 +1001,27 @@ export class FlyProvisioner {
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
+    // Claude Code bootstrap snippet — appended to BOOTSTRAP.md on first boot
+    const bootstrapSnippet = `
+<!-- clawnboard-claude-code -->
+## Set Up Claude Code (Coding Subagent)
+
+You have Claude Code pre-installed — it lets you spawn a coding agent for programming tasks.
+
+To activate it, the owner needs to authenticate once:
+
+1. Tell them to run in a terminal:
+   \`\`\`
+   fly ssh console -a ${appName}
+   claude auth login
+   \`\`\`
+2. It prints a URL — they open it in their browser and log in with their Claude account
+3. **Important:** The URL may wrap across multiple lines. They must copy the entire URL as one line, or they'll get an "Invalid OAuth Request" error.
+4. Once done, credentials persist across restarts — no need to redo.
+
+If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses that instead — no login needed.
+`.replace(/'/g, "'\\''");
+
     // Scale Node heap to ~75% of instance RAM to avoid OOM
     const sizeKey = config.size || "2gb";
     const heapMb = Math.floor(SIZE_SPECS[sizeKey].memory_mb * 0.75);
@@ -1034,8 +1075,8 @@ export class FlyProvisioner {
           cmd: [
             "/bin/sh",
             "-c",
-            // Don't overwrite config since we're restoring from snapshot
-            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            // Don't overwrite config since we're restoring from snapshot; append Claude Code bootstrap snippet
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
