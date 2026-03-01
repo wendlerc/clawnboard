@@ -57,15 +57,17 @@ export const errorHandler: ErrorHandler = (err, c) => {
     );
   }
 
+  const message =
+    process.env.NODE_ENV === "production"
+      ? "An internal error occurred"
+      : (err instanceof Error ? err.message : err ? String(err) : "Unknown error") || "An unexpected error occurred";
+
   return c.json(
     {
       success: false,
       error: {
         code: "INTERNAL_ERROR",
-        message:
-          process.env.NODE_ENV === "production"
-            ? "An internal error occurred"
-            : err?.message || "Unknown error",
+        message,
       },
     },
     500

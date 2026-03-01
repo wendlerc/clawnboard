@@ -96,19 +96,27 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
     const fetchMoltbot = async () => {
       try {
         const res = await fetch(`${API_URL}/api/moltbots/${moltbotId}`);
-        const data = await res.json();
+        let data: { success?: boolean; data?: Moltbot; error?: { message?: string; code?: string } };
+        try {
+          data = await res.json();
+        } catch {
+          setError(`API returned invalid response (${res.status})`);
+          return;
+        }
         if (data.success) {
-          setMoltbot(data.data);
-          if (data.data.status === 'started') {
+          setMoltbot(data.data ?? null);
+          if (data.data?.status === 'started') {
             checkServerHealth(data.data.hostname);
           } else {
             setServerReady(null);
           }
         } else {
-          setError(data.error?.message || "Failed to fetch moltbot");
+          const msg = data.error?.message || data.error?.code || "Failed to fetch moltbot";
+          setError(msg || "Something went wrong");
         }
-      } catch {
-        setError("Failed to connect to API");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        setError((msg && msg.trim()) || "Failed to connect to API");
       } finally {
         setLoading(false);
       }
@@ -237,7 +245,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
         <CardContent>
           <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
           <h3 className="mt-4 text-lg font-semibold text-destructive">Error</h3>
-          <p className="mt-2 text-muted-foreground">{error || "Moltbot not found"}</p>
+          <p className="mt-2 text-muted-foreground">{error?.trim() || "Moltbot not found"}</p>
           <Button className="mt-4" onClick={() => router.push("/dashboard")}>
             Back to Dashboard
           </Button>

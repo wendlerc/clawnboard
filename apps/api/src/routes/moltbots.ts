@@ -32,6 +32,11 @@ function getProvisioner(): FlyProvisioner {
   return new FlyProvisioner({ apiToken, region });
 }
 
+function toErrorMessage(error: unknown, fallback: string): string {
+  const msg = error instanceof Error ? error.message : error ? String(error) : "";
+  return (msg && msg.trim()) || fallback;
+}
+
 const createMoltbotSchema = z.object({
   name: z
     .string()
@@ -87,7 +92,7 @@ moltbotsRouter.get("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list moltbots",
+          message: toErrorMessage(error, "Failed to list moltbots"),
         },
       },
       500
@@ -137,7 +142,7 @@ moltbotsRouter.get("/:id", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to get moltbot",
+          message: toErrorMessage(error, "Failed to get moltbot"),
         },
       },
       500
@@ -200,7 +205,7 @@ moltbotsRouter.post("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to create moltbot",
+          message: toErrorMessage(error, "Failed to create moltbot"),
         },
       },
       500
@@ -229,7 +234,7 @@ moltbotsRouter.delete("/:id", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to delete moltbot",
+          message: toErrorMessage(error, "Failed to delete moltbot"),
         },
       },
       500
@@ -258,7 +263,7 @@ moltbotsRouter.post("/:id/start", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to start moltbot",
+          message: toErrorMessage(error, "Failed to start moltbot"),
         },
       },
       500
@@ -287,7 +292,7 @@ moltbotsRouter.post("/:id/stop", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to stop moltbot",
+          message: toErrorMessage(error, "Failed to stop moltbot"),
         },
       },
       500
@@ -316,7 +321,7 @@ moltbotsRouter.post("/:id/restart", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to restart moltbot",
+          message: toErrorMessage(error, "Failed to restart moltbot"),
         },
       },
       500
@@ -348,7 +353,7 @@ moltbotsRouter.post("/:id/update", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to update moltbot",
+          message: toErrorMessage(error, "Failed to update moltbot"),
         },
       },
       500
@@ -383,7 +388,7 @@ moltbotsRouter.post("/:id/repair-pairing", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to repair gateway pairing",
+          message: toErrorMessage(error, "Failed to repair gateway pairing"),
         },
       },
       500
@@ -416,7 +421,7 @@ moltbotsRouter.post("/:id/install-sudo", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to install sudo access",
+          message: toErrorMessage(error, "Failed to install sudo access"),
         },
       },
       500
@@ -480,7 +485,7 @@ moltbotsRouter.get("/:id/snapshots", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list snapshots",
+          message: toErrorMessage(error, "Failed to list snapshots"),
         },
       },
       500
@@ -545,7 +550,7 @@ moltbotsRouter.post("/:id/snapshots", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to create snapshot",
+          message: toErrorMessage(error, "Failed to create snapshot"),
         },
       },
       500
@@ -578,7 +583,7 @@ moltbotsRouter.delete("/:id/snapshots/:snapshotId", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to hide snapshot",
+          message: toErrorMessage(error, "Failed to hide snapshot"),
         },
       },
       500
@@ -608,7 +613,7 @@ snapshotsRouter.get("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list snapshots",
+          message: toErrorMessage(error, "Failed to list snapshots"),
         },
       },
       500
@@ -685,7 +690,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to deploy from snapshot",
+          message: toErrorMessage(error, "Failed to deploy from snapshot"),
         },
       },
       500
