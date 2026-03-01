@@ -37,14 +37,22 @@ export function MoltbotList() {
   const fetchMoltbots = async () => {
     try {
       const res = await fetch(`${API_URL}/api/moltbots`);
-      const data = await res.json();
+      let data: { success?: boolean; data?: Moltbot[]; error?: { message?: string; code?: string } };
+      try {
+        data = await res.json();
+      } catch {
+        setError(`API returned invalid response (${res.status})`);
+        return;
+      }
       if (data.success) {
-        setMoltbots(data.data);
+        setMoltbots(data.data ?? []);
       } else {
-        setError(data.error?.message || "Failed to fetch moltbots");
+        const msg = data.error?.message || data.error?.code || "Failed to fetch moltbots";
+        setError(msg || "Something went wrong");
       }
     } catch (err) {
-      setError("Failed to connect to API");
+      const msg = err instanceof Error ? err.message : "";
+      setError((msg && msg.trim()) || "Failed to connect to API");
     } finally {
       setLoading(false);
     }
@@ -72,7 +80,7 @@ export function MoltbotList() {
         <CardContent>
           <Bot className="mx-auto h-12 w-12 text-destructive" />
           <h3 className="mt-4 text-lg font-semibold text-destructive">Error</h3>
-          <p className="mt-2 text-muted-foreground">{error}</p>
+          <p className="mt-2 text-muted-foreground">{error || "Something went wrong"}</p>
           <Button className="mt-4" onClick={handleRefresh}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Retry

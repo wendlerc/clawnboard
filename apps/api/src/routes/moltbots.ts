@@ -11,6 +11,7 @@
  *   POST   /api/moltbots/:id/restart - Restart a moltbot
  *   POST   /api/moltbots/:id/update  - Update to latest OpenClaw version
  *   PATCH  /api/moltbots/:id/acp    - Update ACP subagent configuration
+ *   POST   /api/moltbots/:id/repair-pairing - Repair gateway device pairing
  */
 
 import { Hono } from "hono";
@@ -31,6 +32,11 @@ function getProvisioner(): FlyProvisioner {
   }
 
   return new FlyProvisioner({ apiToken, region, image });
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  const msg = error instanceof Error ? error.message : error ? String(error) : "";
+  return (msg && msg.trim()) || fallback;
 }
 
 const acpConfigSchema = z.object({
@@ -99,7 +105,7 @@ moltbotsRouter.get("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list moltbots",
+          message: toErrorMessage(error, "Failed to list moltbots"),
         },
       },
       500
@@ -150,7 +156,7 @@ moltbotsRouter.get("/:id", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to get moltbot",
+          message: toErrorMessage(error, "Failed to get moltbot"),
         },
       },
       500
@@ -215,7 +221,7 @@ moltbotsRouter.post("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to create moltbot",
+          message: toErrorMessage(error, "Failed to create moltbot"),
         },
       },
       500
@@ -244,7 +250,7 @@ moltbotsRouter.delete("/:id", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to delete moltbot",
+          message: toErrorMessage(error, "Failed to delete moltbot"),
         },
       },
       500
@@ -273,7 +279,7 @@ moltbotsRouter.post("/:id/start", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to start moltbot",
+          message: toErrorMessage(error, "Failed to start moltbot"),
         },
       },
       500
@@ -302,7 +308,7 @@ moltbotsRouter.post("/:id/stop", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to stop moltbot",
+          message: toErrorMessage(error, "Failed to stop moltbot"),
         },
       },
       500
@@ -331,7 +337,7 @@ moltbotsRouter.post("/:id/restart", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to restart moltbot",
+          message: toErrorMessage(error, "Failed to restart moltbot"),
         },
       },
       500
@@ -363,7 +369,7 @@ moltbotsRouter.post("/:id/update", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to update moltbot",
+          message: toErrorMessage(error, "Failed to update moltbot"),
         },
       },
       500
@@ -422,6 +428,41 @@ moltbotsRouter.post("/:id/resize", async (c) => {
 });
 
 /**
+ * Repair gateway device pairing for a moltbot
+ * POST /api/moltbots/:id/repair-pairing
+ *
+ * OpenClaw 2026.2.9+ uses device-based pairing for gateway RPC WebSocket connections.
+ * When an agent regenerates its device identity (e.g. after restart/update), it gets
+ * stuck in "pending approval", breaking cron, browser, and all gateway RPC tools.
+ * This approves pending pairing requests and signals the gateway to reload.
+ * Safe no-op when there are no pending entries.
+ */
+moltbotsRouter.post("/:id/repair-pairing", async (c) => {
+  const id = c.req.param("id");
+
+  try {
+    const provisioner = getProvisioner();
+    await provisioner.repairGatewayPairing(`moltbot-${id}`);
+
+    return c.json({
+      success: true,
+      data: { message: "Gateway pairing repaired successfully" },
+    });
+  } catch (error) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: "FLY_API_ERROR",
+          message: toErrorMessage(error, "Failed to repair gateway pairing"),
+        },
+      },
+      500
+    );
+  }
+});
+
+/**
  * Install sudo access for a moltbot
  * POST /api/moltbots/:id/install-sudo
  *
@@ -446,7 +487,7 @@ moltbotsRouter.post("/:id/install-sudo", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to install sudo access",
+          message: toErrorMessage(error, "Failed to install sudo access"),
         },
       },
       500
@@ -557,7 +598,7 @@ moltbotsRouter.get("/:id/snapshots", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list snapshots",
+          message: toErrorMessage(error, "Failed to list snapshots"),
         },
       },
       500
@@ -622,7 +663,7 @@ moltbotsRouter.post("/:id/snapshots", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to create snapshot",
+          message: toErrorMessage(error, "Failed to create snapshot"),
         },
       },
       500
@@ -655,7 +696,7 @@ moltbotsRouter.delete("/:id/snapshots/:snapshotId", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to hide snapshot",
+          message: toErrorMessage(error, "Failed to hide snapshot"),
         },
       },
       500
@@ -685,7 +726,7 @@ snapshotsRouter.get("/", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to list snapshots",
+          message: toErrorMessage(error, "Failed to list snapshots"),
         },
       },
       500
@@ -765,7 +806,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
         success: false,
         error: {
           code: "FLY_API_ERROR",
-          message: error instanceof Error ? error.message : "Failed to deploy from snapshot",
+          message: toErrorMessage(error, "Failed to deploy from snapshot"),
         },
       },
       500

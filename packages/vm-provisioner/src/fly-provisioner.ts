@@ -331,7 +331,12 @@ export class FlyProvisioner {
         mode: "local",
         bind: "lan",
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: { allowInsecureAuth: true },
+        controlUi: {
+          allowInsecureAuth: true,
+          dangerouslyAllowHostHeaderOriginFallback: true,
+          // Skip browser device pairing - token in URL is sufficient for personal deployments
+          dangerouslyDisableDeviceAuth: true,
+        },
       },
       browser: {
         enabled: true,
@@ -481,7 +486,7 @@ export class FlyProvisioner {
         this.logger.info(`ACP config stored in metadata`, { ...context, machineId: machine.id });
       }
 
-      // Wait for machine to be started, then install sudo access
+      // Wait for machine to be started, then install sudo access and repair pairing
       // SSH requires the machine to be running
       await this.waitForState(appName, machine.id, "started", 120000);
       await this.waitForChecksPassing(appName, machine.id, 300000);
@@ -597,7 +602,7 @@ export class FlyProvisioner {
     const machineId = machines[0].id;
     await this.machinesRequest<void>(appName, "POST", `/machines/${machineId}/start`);
 
-    // Wait for start, then reinstall sudo (container resets to base image)
+    // Wait for start, then reinstall sudo and repair pairing (container resets to base image)
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
@@ -685,7 +690,7 @@ export class FlyProvisioner {
       }
     );
 
-    // Wait for the machine to be running again, then install sudo
+    // Wait for the machine to be running again, then install sudo and repair pairing
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
@@ -750,7 +755,7 @@ export class FlyProvisioner {
     const machineId = machines[0].id;
     await this.machinesRequest<void>(appName, "POST", `/machines/${machineId}/restart`);
 
-    // Wait for restart, then reinstall sudo (container resets to base image)
+    // Wait for restart, then reinstall sudo and repair pairing (container resets to base image)
     const moltbot = await this.waitForState(appName, machineId, "started");
     await this.waitForChecksPassing(appName, machineId, 300000);
     await this.installSudoAccess(appName);
@@ -1007,7 +1012,12 @@ export class FlyProvisioner {
         mode: "local",
         bind: "lan",
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: { allowInsecureAuth: true },
+        controlUi: {
+          allowInsecureAuth: true,
+          dangerouslyAllowHostHeaderOriginFallback: true,
+          // Skip browser device pairing - token in URL is sufficient for personal deployments
+          dangerouslyDisableDeviceAuth: true,
+        },
       },
       browser: {
         enabled: true,
@@ -1146,7 +1156,7 @@ export class FlyProvisioner {
         this.logger.info(`ACP config stored in metadata`, { ...context, machineId: machine.id });
       }
 
-      // Wait for machine to be started, then install sudo access
+      // Wait for machine to be started, then install sudo access and repair pairing
       await this.waitForState(appName, machine.id, "started", 120000);
       await this.waitForChecksPassing(appName, machine.id, 300000);
       await this.installSudoAccess(appName);
@@ -1336,85 +1346,136 @@ export class FlyProvisioner {
   }
 
   /**
-   * Repairs gateway device pairing after lifecycle events.
-   * OpenClaw 2026.2.9+ requires agents to be "paired" with the gateway.
-   * After restart/update, the agent gets a new device identity that needs approval.
-   * This auto-approves pending pairings via SSH.
+   * Repairs gateway device pairing after agent restarts.
    *
-   * Cherry-picked from andyrdt/clawnboard.
+   * Background: OpenClaw has two main processes — the **gateway** (serves the web UI,
+   * handles HTTP/WebSocket traffic) and the **agent** (the AI that actually does work).
+   * The agent talks to the gateway over a local WebSocket RPC connection to access
+   * tools like cron, the browser, scheduled tasks, etc.
+   *
+   * Starting in OpenClaw 2026.2.9, the gateway requires agents to be "paired" before
+   * it will accept their RPC commands. This is a security feature — it prevents
+   * unauthorized processes from controlling the gateway. Each agent generates a unique
+   * device identity (a keypair) on first run, and the gateway must approve ("pair")
+   * that identity before the agent can use any gateway-provided tools.
+   *
+   * The problem: when a moltbot restarts or updates, the agent process often gets a
+   * brand-new device identity. The gateway sees an unknown device and puts it in a
+   * "pending approval" queue (/data/devices/pending.json). Since nobody is around to
+   * click "approve" in the UI, the agent gets stuck — cron jobs stop, browser tools
+   * break, and all gateway RPC fails. Discord still works because it connects directly
+   * to the agent, bypassing the gateway entirely.
+   *
+   * This method auto-approves any pending pairing requests by:
+   * 1. Reading /data/devices/pending.json — if empty, exits (no-op)
+   * 2. Generating auth tokens and appending approved entries to /data/devices/paired.json
+   * 3. Clearing /data/devices/pending.json
+   * 4. Writing /data/identity/device-auth.json so the agent knows its own token
+   * 5. Sending SIGUSR1 to the gateway process (graceful config reload)
+   * 6. Fixing file ownership (SSH runs as root, but gateway runs as node)
+   *
+   * Safe no-op when there are no pending entries — reads one file and exits.
    */
-  private async repairGatewayPairing(appName: string): Promise<void> {
+  async repairGatewayPairing(appName: string): Promise<void> {
     const context = { appName, operation: "repair-gateway-pairing" };
+    this.logger.info(`Repairing gateway pairing`, context);
 
+    // Node.js script to run on the machine via SSH
+    // 1. Patches config to disable browser device pairing (fixes "pairing required" for Control UI)
+    // 2. Approves any pending agent devices
+    // Base64-encoded to avoid shell quoting issues with nested quotes
     const script = `
-const fs = require('fs');
-const crypto = require('crypto');
+const fs = require("fs");
+const crypto = require("crypto");
 
-const pendingPath = '/data/devices/pending.json';
-const pairedPath = '/data/devices/paired.json';
-const authPath = '/data/identity/device-auth.json';
+const CONFIG_PATH = "/data/openclaw.json";
+const PENDING_PATH = "/data/devices/pending.json";
+const PAIRED_PATH = "/data/devices/paired.json";
+const DEVICE_AUTH_PATH = "/data/identity/device-auth.json";
 
-// Read pending devices
-let pending;
+// 1. Patch config: add dangerouslyDisableDeviceAuth to skip browser pairing
 try {
-  pending = JSON.parse(fs.readFileSync(pendingPath, 'utf8'));
-} catch { pending = []; }
-if (!Array.isArray(pending) || pending.length === 0) {
-  console.log('No pending devices');
-  process.exit(0);
+  const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  if (!config.gateway) config.gateway = {};
+  if (!config.gateway.controlUi) config.gateway.controlUi = {};
+  if (config.gateway.controlUi.dangerouslyDisableDeviceAuth !== true) {
+    config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+    console.log("Patched config: disabled browser device pairing");
+  }
+} catch (e) { console.error("Config patch:", e.message); }
+
+// Read pending entries
+let pending = {};
+try { pending = JSON.parse(fs.readFileSync(PENDING_PATH, "utf8")); } catch {}
+
+const keys = Object.keys(pending);
+if (keys.length > 0) {
+  console.log("Found " + keys.length + " pending pairing(s), approving...");
+  let paired = {};
+  try { paired = JSON.parse(fs.readFileSync(PAIRED_PATH, "utf8")); } catch {}
+  const now = Date.now();
+  for (const deviceId of keys) {
+    const entry = pending[deviceId];
+    const role = entry.role || "operator";
+    const scopes = entry.scopes || ["operator.admin", "operator.approvals", "operator.pairing"];
+    const token = crypto.randomBytes(16).toString("hex");
+    paired[deviceId] = {
+      ...entry,
+      tokens: { [role]: { token, role, scopes, createdAtMs: now } },
+      createdAtMs: entry.createdAtMs || now,
+      approvedAtMs: now,
+    };
+    try {
+      fs.mkdirSync("/data/identity", { recursive: true });
+      fs.writeFileSync(DEVICE_AUTH_PATH, JSON.stringify({
+        version: 1,
+        deviceId,
+        tokens: { [role]: { token, role, scopes, updatedAtMs: now } }
+      }, null, 2));
+    } catch (e) { console.error("Failed to write device-auth:", e.message); }
+  }
+  fs.mkdirSync("/data/devices", { recursive: true });
+  fs.writeFileSync(PAIRED_PATH, JSON.stringify(paired, null, 2));
+  fs.writeFileSync(PENDING_PATH, JSON.stringify({}, null, 2));
+  console.log("Approved " + keys.length + " device(s)");
 }
 
-// Read existing paired devices
-let paired;
+// Fix ownership - SSH runs as root but gateway runs as node
+const { execSync } = require("child_process");
 try {
-  paired = JSON.parse(fs.readFileSync(pairedPath, 'utf8'));
-} catch { paired = []; }
-
-// Approve all pending devices
-for (const device of pending) {
-  const token = crypto.randomUUID();
-  paired.push({ ...device, token, approvedAt: new Date().toISOString() });
-  // Write auth for the most recent device (the current agent)
-  fs.mkdirSync('/data/identity', { recursive: true });
-  fs.writeFileSync(authPath, JSON.stringify({ deviceId: device.deviceId, token }));
-}
-
-// Save paired and clear pending
-fs.writeFileSync(pairedPath, JSON.stringify(paired, null, 2));
-fs.writeFileSync(pendingPath, '[]');
-
-// Fix ownership
-try {
-  require('child_process').execSync('chown -R node:node /data/devices /data/identity 2>/dev/null || true');
+  execSync("chown -R node:node /data/devices /data/identity");
+  execSync("chown node:node /data/openclaw.json");
 } catch {}
 
-// Signal gateway to reload config
+// Signal gateway to reload (picks up config changes)
 try {
-  const pid = require('child_process').execSync("pgrep -f 'node dist/index.js gateway'").toString().trim();
-  if (pid) process.kill(parseInt(pid), 'SIGUSR1');
-} catch {}
+  const pid = execSync("pgrep -f 'node.*gateway' || true").toString().trim().split("\\n")[0];
+  if (pid) { process.kill(parseInt(pid), "SIGUSR1"); console.log("Sent SIGUSR1 to gateway pid " + pid); }
+} catch (e) { console.error("Failed to signal gateway:", e.message); }
 
-console.log('Approved ' + pending.length + ' pending device(s)');
-`;
+console.log("Repair complete");
+`.trim();
 
-    const b64 = Buffer.from(script.trim()).toString("base64");
+    const scriptB64 = Buffer.from(script).toString("base64");
+
     const maxRetries = 5;
     const retryDelayMs = 10000;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        this.logger.info(`Repair pairing (attempt ${attempt}/${maxRetries})`, context);
         await execAsync(
-          `fly ssh console -a ${appName} -C "echo '${b64}' | base64 -d | node"`,
-          { timeout: 30000 }
+          `fly ssh console -a ${appName} -C "echo ${scriptB64} | base64 -d | node"`,
+          { timeout: 60000 }
         );
-        this.logger.info(`Gateway pairing repaired`, context);
+        this.logger.info(`Gateway pairing repair completed`, context);
         return;
       } catch (error) {
         if (attempt < maxRetries) {
-          this.logger.info(`Repair pairing attempt ${attempt} failed, retrying...`, context);
+          this.logger.info(`SSH attempt ${attempt} failed, retrying in ${retryDelayMs / 1000}s...`, context);
           await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         } else {
-          // Non-fatal: log and continue
           this.logger.error(
             `Failed to repair gateway pairing after ${maxRetries} attempts (non-fatal)`,
             error instanceof Error ? error : new Error(String(error)),

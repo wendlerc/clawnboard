@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Wrench,
   Info,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,22 +108,30 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
     const fetchMoltbot = async () => {
       try {
         const res = await fetch(`${API_URL}/api/moltbots/${moltbotId}`);
-        const data = await res.json();
+        let data: { success?: boolean; data?: Moltbot; error?: { message?: string; code?: string } };
+        try {
+          data = await res.json();
+        } catch {
+          setError(`API returned invalid response (${res.status})`);
+          return;
+        }
         if (data.success) {
-          setMoltbot(data.data);
-          if (data.data.acpConfig && !acpEditing) {
+          setMoltbot(data.data ?? null);
+          if (data.data?.acpConfig && !acpEditing) {
             setAcpConfig(data.data.acpConfig);
           }
-          if (data.data.status === 'started') {
+          if (data.data?.status === 'started') {
             checkServerHealth(data.data.hostname);
           } else {
             setServerReady(null);
           }
         } else {
-          setError(data.error?.message || "Failed to fetch moltbot");
+          const msg = data.error?.message || data.error?.code || "Failed to fetch moltbot";
+          setError(msg || "Something went wrong");
         }
-      } catch {
-        setError("Failed to connect to API");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        setError((msg && msg.trim()) || "Failed to connect to API");
       } finally {
         setLoading(false);
       }
@@ -150,7 +159,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
     fetchSnapshots();
   }, [moltbotId]);
 
-  const handleAction = async (action: "start" | "stop" | "restart" | "destroy" | "update" | "install-sudo") => {
+  const handleAction = async (action: "start" | "stop" | "restart" | "destroy" | "update" | "install-sudo" | "repair-pairing") => {
     setActionLoading(action);
     try {
       const endpoint = action === "destroy"
@@ -271,7 +280,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
         <CardContent>
           <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
           <h3 className="mt-4 text-lg font-semibold text-destructive">Error</h3>
-          <p className="mt-2 text-muted-foreground">{error || "Moltbot not found"}</p>
+          <p className="mt-2 text-muted-foreground">{error?.trim() || "Moltbot not found"}</p>
           <Button className="mt-4" onClick={() => router.push("/dashboard")}>
             Back to Dashboard
           </Button>
@@ -347,7 +356,7 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
               </p>
             </div>
             <a href={controlUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-              <Button size="lg" disabled={!isReady} className="min-w-[180px]">
+              <Button size="lg" disabled={!isRunning} className="min-w-[180px]">
                 {displayStatus.loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
@@ -422,6 +431,10 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
                 {actionLoading === "install-sudo" ? "Installing..." : "Install Sudo"}
               </Button>
             </div>
+            <Button variant="outline" size="sm" className="w-full" onClick={() => handleAction("repair-pairing")} disabled={actionLoading !== null || !isRunning}>
+              <Link2 className={`mr-2 h-4 w-4`} />
+              {actionLoading === "repair-pairing" ? "Repairing..." : "Repair Pairing"}
+            </Button>
             {justUpdated && (
               <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <div className="flex gap-2 text-sm">
@@ -642,6 +655,23 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
               <div className="bg-zinc-950 rounded-lg px-3 py-2 font-mono text-sm">
                 <code className="text-green-400">fly logs -a moltbot-{moltbot.name}</code>
               </div>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Gateway pairing issues</h4>
+              <p className="text-sm text-muted-foreground">
+                Your moltbot has two processes: the <strong>gateway</strong> (web UI, HTTP) and the <strong>agent</strong> (the AI).
+                The agent connects to the gateway to use tools like cron, browser, and scheduled tasks.
+                For security, the gateway requires agents to &quot;pair&quot; — prove their identity — before accepting commands.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                When a moltbot restarts or updates, the agent sometimes gets a new identity that the gateway
+                doesn&apos;t recognize. It gets stuck waiting for approval, which breaks cron, browser, and all
+                gateway tools. (Discord still works since it talks directly to the agent.)
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                This is repaired automatically on restart/update, but if something went wrong you
+                can click <strong>Repair Pairing</strong> in Server Controls to manually approve pending devices.
+              </p>
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Hard restart</h4>

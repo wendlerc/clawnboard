@@ -264,11 +264,9 @@ docker compose run --rm openclaw-cli \
 
 ### "Pairing required" error
 
-This can happen if the gateway doesn't trust the connection. ClawnBoard's config includes:
-- `gateway.trustedProxies` — Trust Fly.io's internal network
-- `gateway.controlUi.allowInsecureAuth` — Allow token-only auth
+ClawnBoard disables browser device pairing by default (`gateway.controlUi.dangerouslyDisableDeviceAuth: true`), so the token in the URL is sufficient — no device approval needed.
 
-If you still see this error, delete and recreate the moltbot.
+For moltbots created before this fix: click **Repair Pairing** in Server Controls, then **Restart**. The repair patches the config and restarts the gateway.
 
 ### Customizing your moltbot
 

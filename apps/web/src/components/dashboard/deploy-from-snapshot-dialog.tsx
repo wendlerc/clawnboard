@@ -135,8 +135,13 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
           acpConfig,
         }),
       });
-      const data = await res.json();
-
+      let data: { success?: boolean; error?: { message?: string; code?: string } };
+      try {
+        data = await res.json();
+      } catch {
+        setError(`API returned invalid response (${res.status})`);
+        return;
+      }
       if (data.success) {
         setOpen(false);
         setName("");
@@ -146,10 +151,12 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
         router.refresh();
         window.location.reload();
       } else {
-        setError(data.error?.message || "Failed to deploy from snapshot");
+        const msg = data.error?.message || data.error?.code || "Failed to deploy from snapshot";
+        setError(msg || "Something went wrong");
       }
-    } catch {
-      setError("Failed to connect to API");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setError((msg && msg.trim()) || "Failed to connect to API");
     } finally {
       setIsLoading(false);
     }
@@ -355,7 +362,7 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
           </div>
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive">{error || "Something went wrong"}</p>
           )}
 
           {!hasAnyProvider && (
