@@ -449,9 +449,11 @@ SSH into the moltbot and run `claude login`. It will print a URL — open it in 
 
 ```bash
 fly ssh console -a moltbot-<name>
-claude login
+claude auth login
 # Copy the URL it prints → open in your browser → approve
 ```
+
+> **Warning:** The login URL may wrap across multiple lines in your terminal. Make sure to copy the **entire URL** as a single line with no linebreaks — otherwise you'll get an "Invalid OAuth Request" error.
 
 This only needs to be done once per moltbot. Credentials are stored on the persistent volume (`/data/.claude-code`) and survive restarts and redeployments.
 
