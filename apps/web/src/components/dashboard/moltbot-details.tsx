@@ -54,7 +54,7 @@ import type { Moltbot, MoltbotStatus, VolumeSnapshot, AcpAgent, AcpConfig } from
 import { VM_SPECS, ACP_AGENTS } from "@clawnboard/shared";
 import { SnapshotList } from "./snapshot-list";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3101";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface MoltbotDetailsProps {
   moltbotId: string;

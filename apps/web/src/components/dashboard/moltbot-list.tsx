@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Moltbot, MoltbotStatus } from "@clawnboard/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3101";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function MoltbotList() {
   const [moltbots, setMoltbots] = useState<Moltbot[]>([]);
@@ -84,7 +84,7 @@ export function MoltbotList() {
           <p className="mt-2 text-muted-foreground">{error || "Something went wrong"}</p>
           {isConnectionError && (
             <p className="mt-2 text-sm text-muted-foreground">
-              Make sure the API is running. From the project root, run <code className="bg-muted px-1 rounded">pnpm dev</code> to start both the API (port 3101) and this dashboard.
+              Make sure the API is running. From the project root, run <code className="bg-muted px-1 rounded">pnpm dev</code> to run <code className="bg-muted px-1 rounded">pnpm dev</code> from the project root to start both services.
             </p>
           )}
           <Button className="mt-4" onClick={handleRefresh}>
