@@ -75,12 +75,18 @@ export function MoltbotList() {
   }
 
   if (error) {
+    const isConnectionError = error.includes("connect") || error.includes("fetch");
     return (
       <Card className="text-center py-12">
         <CardContent>
           <Bot className="mx-auto h-12 w-12 text-destructive" />
           <h3 className="mt-4 text-lg font-semibold text-destructive">Error</h3>
           <p className="mt-2 text-muted-foreground">{error || "Something went wrong"}</p>
+          {isConnectionError && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Make sure the API is running. From the project root, run <code className="bg-muted px-1 rounded">pnpm dev</code> to start both the API (port 3001) and this dashboard.
+            </p>
+          )}
           <Button className="mt-4" onClick={handleRefresh}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Retry
