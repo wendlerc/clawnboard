@@ -553,30 +553,35 @@ export class FlyProvisioner {
    */
   async listMoltbots(): Promise<MoltbotInstance[]> {
     const apps = await this.listMoltbotApps();
-    const moltbots: MoltbotInstance[] = [];
 
-    for (const app of apps) {
-      try {
+    // Fetch all moltbots in parallel to minimize API round-trips
+    const results = await Promise.allSettled(
+      apps.map(async (app) => {
         const machines = await this.machinesRequest<FlyMachine[]>(app.name, "GET", "/machines");
-        if (machines.length > 0) {
-          const machine = machines[0];
-          const instance = this.mapMachineToInstance(machine, app.name);
+        if (machines.length === 0) return null;
 
-          // Fetch gateway token and ACP config from metadata
-          const metadata = await this.getMachineMetadata(app.name, machine.id);
-          instance.gatewayToken = metadata[GATEWAY_TOKEN_METADATA_KEY];
-          if (metadata[ACP_CONFIG_METADATA_KEY]) {
-            try {
-              instance.acpConfig = JSON.parse(metadata[ACP_CONFIG_METADATA_KEY]);
-            } catch {
-              // Invalid ACP config in metadata, ignore
-            }
+        const machine = machines[0];
+        const instance = this.mapMachineToInstance(machine, app.name);
+
+        // Fetch gateway token and ACP config from metadata
+        const metadata = await this.getMachineMetadata(app.name, machine.id);
+        instance.gatewayToken = metadata[GATEWAY_TOKEN_METADATA_KEY];
+        if (metadata[ACP_CONFIG_METADATA_KEY]) {
+          try {
+            instance.acpConfig = JSON.parse(metadata[ACP_CONFIG_METADATA_KEY]);
+          } catch {
+            // Invalid ACP config in metadata, ignore
           }
-
-          moltbots.push(instance);
         }
-      } catch {
-        // Skip apps we can't access
+
+        return instance;
+      })
+    );
+
+    const moltbots: MoltbotInstance[] = [];
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) {
+        moltbots.push(result.value);
       }
     }
 
