@@ -318,6 +318,9 @@ export class FlyProvisioner {
     const primaryModel = config.model || "anthropic/claude-sonnet-4-5";
 
     // Build OpenClaw config with selected model
+    // Minimal openclaw.json — only set what's needed for the gateway to start.
+    // OpenClaw's `doctor --fix` auto-detects ACP tooling, Discord tokens from env, etc.
+    // User can customize further via the Control UI or `openclaw doctor --fix`.
     const openclawConfig = {
       agents: {
         defaults: {
@@ -326,8 +329,6 @@ export class FlyProvisioner {
             primary: primaryModel,
             fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
           },
-          // Match "kimi25" defaults (but keep secrets out of config).
-          // This controls what the agent is allowed to do by default.
           elevatedDefault: "full",
           sandbox: { mode: "off" },
           maxConcurrent: 4,
@@ -348,64 +349,17 @@ export class FlyProvisioner {
         controlUi: {
           allowInsecureAuth: true,
           dangerouslyAllowHostHeaderOriginFallback: true,
-          // Skip browser device pairing - token in URL is sufficient for personal deployments
           dangerouslyDisableDeviceAuth: true,
         },
       },
-      browser: {
-        enabled: true,
-        executablePath: "/usr/bin/chromium",
-        headless: false,
-        noSandbox: true,
-        defaultProfile: "openclaw",
-        profiles: {
-          openclaw: {
-            cdpPort: 18800,
-            color: "#FF4500",
-          },
-        },
-        // Enable Discord integration defaults. Token should come from env var
-        // (e.g. DISCORD_BOT_TOKEN via Fly secrets), not from this JSON.
-        channels: {
-          discord: {
-            enabled: true,
-            allowBots: true,
-            groupPolicy: "allowlist",
-            actions: { reactions: true, messages: true },
-            dm: {
-              enabled: true,
-              policy: "allowlist",
-              // Intentionally empty by default; populate with Discord user IDs.
-              allowFrom: [],
-            },
-            // Intentionally empty by default; populate with guild/channel allowlist.
-            guilds: {},
-          },
-        },
-        plugins: {
-          entries: {
-            discord: { enabled: true },
-          },
-        },
-        meta: { lastTouchedVersion: "2026.1.29" },
-      },
-      // ACP subagent configuration (Claude Code, Codex, etc.)
-      ...(config.acpConfig?.enabled
-        ? {
-            acp: {
-              enabled: true,
-              dispatch: { enabled: true },
-              backend: "acpx",
-              defaultAgent: config.acpConfig.defaultAgent,
-              allowedAgents: config.acpConfig.allowedAgents,
-              maxConcurrentSessions: config.acpConfig.maxConcurrentSessions,
-            },
-          }
-        : {}),
     };
 
     // Escape single quotes in JSON for shell
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
+
+    // Scale Node heap to ~75% of instance RAM to avoid OOM
+    const sizeKey = config.size || "2gb";
+    const heapMb = Math.floor(SIZE_SPECS[sizeKey].memory_mb * 0.75);
 
     const machineConfig: FlyMachineConfig = {
       image: config.image || this.config.image || DEFAULT_IMAGE,
@@ -413,14 +367,14 @@ export class FlyProvisioner {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
         OPENCLAW_PREFER_PNPM: "1",
-        NODE_OPTIONS: "--max-old-space-size=1536",
+        NODE_OPTIONS: `--max-old-space-size=${heapMb}`,
         DISPLAY: ":99",
         // Gateway authentication - unique token per moltbot
         // Token is also stored in Fly.io metadata for secure retrieval
         OPENCLAW_GATEWAY_TOKEN: gatewayToken,
         ...config.env,
       },
-      guest: SIZE_SPECS[config.size || "2gb"],
+      guest: SIZE_SPECS[sizeKey],
       // Run as root so the agent can install packages (e.g., browser deps)
       init: {
         user: "root",
@@ -990,7 +944,8 @@ export class FlyProvisioner {
     const gatewayToken = crypto.randomUUID();
     const primaryModel = config.model || "anthropic/claude-sonnet-4-5";
 
-    // Build OpenClaw config with selected model
+    // Minimal openclaw.json — only set what's needed for the gateway to start.
+    // OpenClaw's `doctor --fix` auto-detects ACP tooling, Discord tokens from env, etc.
     const openclawConfig = {
       agents: {
         defaults: {
@@ -999,7 +954,6 @@ export class FlyProvisioner {
             primary: primaryModel,
             fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
           },
-          // Match "kimi25" defaults (but keep secrets out of config).
           elevatedDefault: "full",
           sandbox: { mode: "off" },
           maxConcurrent: 4,
@@ -1020,59 +974,16 @@ export class FlyProvisioner {
         controlUi: {
           allowInsecureAuth: true,
           dangerouslyAllowHostHeaderOriginFallback: true,
-          // Skip browser device pairing - token in URL is sufficient for personal deployments
           dangerouslyDisableDeviceAuth: true,
         },
       },
-      browser: {
-        enabled: true,
-        executablePath: "/usr/bin/chromium",
-        headless: false,
-        noSandbox: true,
-        defaultProfile: "openclaw",
-        profiles: {
-          openclaw: {
-            cdpPort: 18800,
-            color: "#FF4500",
-          },
-        },
-        channels: {
-          discord: {
-            enabled: true,
-            allowBots: true,
-            groupPolicy: "allowlist",
-            actions: { reactions: true, messages: true },
-            dm: {
-              enabled: true,
-              policy: "allowlist",
-              allowFrom: [],
-            },
-            guilds: {},
-          },
-        },
-        plugins: {
-          entries: {
-            discord: { enabled: true },
-          },
-        },
-        meta: { lastTouchedVersion: "2026.1.29" },
-      },
-      // ACP subagent configuration (Claude Code, Codex, etc.)
-      ...(config.acpConfig?.enabled
-        ? {
-            acp: {
-              enabled: true,
-              dispatch: { enabled: true },
-              backend: "acpx",
-              defaultAgent: config.acpConfig.defaultAgent,
-              allowedAgents: config.acpConfig.allowedAgents,
-              maxConcurrentSessions: config.acpConfig.maxConcurrentSessions,
-            },
-          }
-        : {}),
     };
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
+
+    // Scale Node heap to ~75% of instance RAM to avoid OOM
+    const sizeKey = config.size || "2gb";
+    const heapMb = Math.floor(SIZE_SPECS[sizeKey].memory_mb * 0.75);
 
     const machineConfig: FlyMachineConfig = {
       image: this.config.image || DEFAULT_IMAGE,
@@ -1080,12 +991,12 @@ export class FlyProvisioner {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
         OPENCLAW_PREFER_PNPM: "1",
-        NODE_OPTIONS: "--max-old-space-size=1536",
+        NODE_OPTIONS: `--max-old-space-size=${heapMb}`,
         DISPLAY: ":99",
         OPENCLAW_GATEWAY_TOKEN: gatewayToken,
         ...config.env,
       },
-      guest: SIZE_SPECS[config.size || "2gb"],
+      guest: SIZE_SPECS[sizeKey],
       init: {
         user: "root",
       },
@@ -1184,27 +1095,49 @@ export class FlyProvisioner {
     }
   }
 
+  /**
+   * Waits for a machine to reach a target state using Fly's blocking /wait endpoint.
+   * Fly caps each /wait call at 60s, so we loop for longer timeouts.
+   */
   private async waitForState(
     appName: string,
     machineId: string,
     targetState: MoltbotStatus,
     timeoutMs = 60000
   ): Promise<MoltbotInstance> {
-    const startTime = Date.now();
+    const flyState = targetState; // Our states match Fly states (started, stopped, destroyed)
+    const deadline = Date.now() + timeoutMs;
 
-    while (Date.now() - startTime < timeoutMs) {
-      const machines = await this.machinesRequest<FlyMachine[]>(appName, "GET", "/machines");
-      const machine = machines.find((m) => m.id === machineId);
+    while (Date.now() < deadline) {
+      const remainingSec = Math.min(60, Math.ceil((deadline - Date.now()) / 1000));
+      if (remainingSec <= 0) break;
 
-      if (!machine) {
-        throw new Error(`Machine ${machineId} not found`);
-      }
+      const url = `${FLY_API_BASE}/apps/${appName}/machines/${machineId}/wait?state=${flyState}&timeout=${remainingSec}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.config.apiToken}`,
+        },
+        signal: AbortSignal.timeout(remainingSec * 1000 + 5000),
+      });
 
-      if (this.mapFlyState(machine.state) === targetState) {
+      if (response.ok) {
+        // Machine reached target state
+        const machines = await this.machinesRequest<FlyMachine[]>(appName, "GET", "/machines");
+        const machine = machines.find((m) => m.id === machineId);
+        if (!machine) {
+          throw new Error(`Machine ${machineId} not found`);
+        }
         return this.mapMachineToInstance(machine, appName);
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // 408 means timeout — retry if we still have time
+      if (response.status === 408) continue;
+
+      const errorText = await response.text();
+      throw new Error(
+        `Error waiting for machine ${machineId} to reach state ${targetState}: ${response.status} ${errorText}`
+      );
     }
 
     throw new Error(
@@ -1217,6 +1150,9 @@ export class FlyProvisioner {
    *
    * "started" can happen before the app is actually listening on 0.0.0.0:3000.
    * This avoids returning control before the gateway is reachable.
+   *
+   * Tolerates transient "stopped" states because the machine has restart: "always",
+   * so Fly.io will restart it after a crash (e.g., first-boot OOM).
    */
   private async waitForChecksPassing(
     appName: string,
@@ -1224,6 +1160,8 @@ export class FlyProvisioner {
     timeoutMs = 300000
   ): Promise<void> {
     const startTime = Date.now();
+    let stoppedCount = 0;
+    const maxStoppedRetries = 3;
 
     while (Date.now() - startTime < timeoutMs) {
       const machine = await this.machinesRequest<FlyMachine>(
@@ -1232,10 +1170,30 @@ export class FlyProvisioner {
         `/machines/${machineId}`
       );
 
-      if (machine.state === "destroyed" || machine.state === "stopped") {
+      if (machine.state === "destroyed") {
         throw new Error(
-          `Machine ${machineId} is ${machine.state} while waiting for health checks`
+          `Machine ${machineId} is destroyed while waiting for health checks`
         );
+      }
+
+      if (machine.state === "stopped") {
+        stoppedCount++;
+        if (stoppedCount > maxStoppedRetries) {
+          throw new Error(
+            `Machine ${machineId} stopped ${stoppedCount} times while waiting for health checks — may be crashing on boot`
+          );
+        }
+        this.logger.info(
+          `Machine ${machineId} is stopped (${stoppedCount}/${maxStoppedRetries}), waiting for restart...`
+        );
+        // Wait longer before next check — give Fly time to restart the machine
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        continue;
+      }
+
+      // Reset stopped counter when machine is running again
+      if (machine.state === "started") {
+        stoppedCount = 0;
       }
 
       const checks = machine.checks ?? [];
@@ -1243,7 +1201,7 @@ export class FlyProvisioner {
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
 
     throw new Error(
