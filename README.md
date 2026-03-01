@@ -4,7 +4,7 @@ A local dashboard for deploying and managing [OpenClaw](https://github.com/openc
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  ClawnBoard (localhost:3000)                                │
+│  ClawnBoard (localhost:3102)                                │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │  │ my-bot      │  │ helper      │  │ + Create    │         │
 │  │ ● Running   │  │ ○ Stopped   │  │   Moltbot   │         │
@@ -99,7 +99,7 @@ ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
 OPENAI_API_KEY=sk-xxxxx
 
 # Server
-PORT=3001
+PORT=3101
 ```
 
 ### 6. Start ClawnBoard
@@ -108,7 +108,7 @@ PORT=3001
 pnpm dev
 ```
 
-Open **http://localhost:3000**
+Open **http://localhost:3102**
 
 ---
 
@@ -174,7 +174,7 @@ fly ssh console -a moltbot-<name>
 | `FLY_REGION` | No | Deploy region (default: `iad`) |
 | `ANTHROPIC_API_KEY` | One of these | Anthropic API key for Claude models |
 | `OPENAI_API_KEY` | One of these | OpenAI API key for GPT models |
-| `PORT` | No | API server port (default: `3001`) |
+| `PORT` | No | API server port (default: `3101`) |
 | `MOLT_BOT_IMAGE` | No | Override the default moltbot image (for example `ghcr.io/<owner>/clawnboard-moltbot:latest`) |
 
 ### Moltbot Sizes
@@ -204,8 +204,8 @@ See [Fly.io regions](https://fly.io/docs/reference/regions/) for full list.
 ```
 clawnboard/
 ├── apps/
-│   ├── web/                 # Next.js dashboard (localhost:3000)
-│   └── api/                 # Hono API server (localhost:3001)
+│   ├── web/                 # Next.js dashboard (localhost:3102)
+│   └── api/                 # Hono API server (localhost:3101)
 ├── packages/
 │   ├── shared/              # Shared types and constants
 │   └── vm-provisioner/      # Fly.io provisioning logic
@@ -405,7 +405,7 @@ Moltbots support [ACP (Agent Client Protocol)](https://docs.openclaw.ai/tools/ac
 
 3. **Via API**:
    ```bash
-   curl -X PATCH http://localhost:3001/api/moltbots/<id>/acp \
+   curl -X PATCH http://localhost:3101/api/moltbots/<id>/acp \
      -H "Content-Type: application/json" \
      -d '{"enabled": true, "defaultAgent": "claude", "allowedAgents": ["claude","codex","gemini","opencode","pi"], "maxConcurrentSessions": 8}'
    ```
@@ -476,7 +476,7 @@ cd clawnboard
 pnpm dev
 ```
 
-Open http://localhost:3000 — your moltbots are fetched from Fly.io.
+Open http://localhost:3102 — your moltbots are fetched from Fly.io.
 
 ---
 

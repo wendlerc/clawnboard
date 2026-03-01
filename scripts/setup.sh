@@ -72,7 +72,7 @@ ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
 
 # Server
-PORT=3001
+PORT=3101
 EOF
     echo -e "${GREEN}✓ Created apps/api/.env${NC}"
 else
@@ -101,5 +101,5 @@ echo "  4. Start ClawnBoard:"
 echo -e "     ${YELLOW}pnpm dev${NC}"
 echo ""
 echo "  5. Open in browser:"
-echo -e "     ${YELLOW}http://localhost:3000${NC}"
+echo -e "     ${YELLOW}http://localhost:3102${NC}"
 echo ""

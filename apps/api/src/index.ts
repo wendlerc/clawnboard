@@ -2,7 +2,7 @@ import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { app } from "./app.js";
 
-const port = parseInt(process.env.PORT || "3001", 10);
+const port = parseInt(process.env.PORT || "3101", 10);
 
 console.log(`Starting ClawnBoard API server on port ${port}...`);
 

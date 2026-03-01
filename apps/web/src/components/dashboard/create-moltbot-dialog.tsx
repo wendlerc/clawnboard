@@ -26,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { VM_SPECS, AI_MODELS, DEFAULT_MODEL, ACP_AGENTS } from "@clawnboard/shared";
 import type { MoltbotSize, AIModelId, AcpAgent, AcpConfig } from "@clawnboard/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3101";
 
 interface CreateMoltbotDialogProps {
   children: React.ReactNode;
