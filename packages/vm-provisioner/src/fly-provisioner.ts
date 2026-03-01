@@ -84,28 +84,42 @@ export class FlyProvisioner {
     body?: unknown
   ): Promise<T> {
     const url = `${FLY_API_BASE}/apps/${appName}${path}`;
+    const maxRetries = 3;
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${this.config.apiToken}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${this.config.apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Fly.io API error: ${response.status} ${response.statusText} - ${errorText}`
-      );
+      if (response.status === 429 && attempt < maxRetries) {
+        // Rate limited — wait and retry with exponential backoff
+        const delay = attempt * 2000;
+        this.logger.info(`Rate limited by Fly.io, retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Fly.io API error: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return response.json() as Promise<T>;
     }
 
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    return response.json() as Promise<T>;
+    // Should not reach here, but TypeScript needs it
+    throw new Error("Max retries exceeded");
   }
 
   /**
