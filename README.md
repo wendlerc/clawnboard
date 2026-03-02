@@ -455,7 +455,15 @@ claude auth login
 
 > **Warning:** The login URL may wrap across multiple lines in your terminal. Make sure to copy the **entire URL** as a single line with no linebreaks — otherwise you'll get an "Invalid OAuth Request" error.
 
-This only needs to be done once per moltbot. Credentials are stored on the persistent volume (`/data/.claude-code`) and survive restarts and redeployments.
+After login, copy the credentials to the workspace so ACP subagents can find them:
+
+```bash
+sudo mkdir -p /data/workspace/.claude-code
+sudo cp /data/.claude-code/.credentials.json /data/workspace/.claude-code/
+sudo chown node:node /data/workspace/.claude-code/.credentials.json
+```
+
+This only needs to be done once per moltbot. Credentials are stored on the persistent volume and survive restarts and redeployments.
 
 **Option B: API key (pay-per-token)**
 

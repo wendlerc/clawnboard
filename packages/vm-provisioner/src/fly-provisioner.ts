@@ -373,7 +373,13 @@ To activate it, the owner needs to authenticate once:
    \`\`\`
 2. It prints a URL — they open it in their browser and log in with their Claude account
 3. **Important:** The URL may wrap across multiple lines. They must copy the entire URL as one line, or they'll get an "Invalid OAuth Request" error.
-4. Once done, credentials persist across restarts — no need to redo.
+4. After login, copy the credentials to the workspace so ACP subagents can find them:
+   \`\`\`
+   sudo mkdir -p /data/workspace/.claude-code
+   sudo cp /data/.claude-code/.credentials.json /data/workspace/.claude-code/
+   sudo chown node:node /data/workspace/.claude-code/.credentials.json
+   \`\`\`
+5. Once done, credentials persist across restarts — no need to redo.
 
 If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses that instead — no login needed.
 `.replace(/'/g, "'\\''");
@@ -1017,7 +1023,13 @@ To activate it, the owner needs to authenticate once:
    \`\`\`
 2. It prints a URL — they open it in their browser and log in with their Claude account
 3. **Important:** The URL may wrap across multiple lines. They must copy the entire URL as one line, or they'll get an "Invalid OAuth Request" error.
-4. Once done, credentials persist across restarts — no need to redo.
+4. After login, copy the credentials to the workspace so ACP subagents can find them:
+   \`\`\`
+   sudo mkdir -p /data/workspace/.claude-code
+   sudo cp /data/.claude-code/.credentials.json /data/workspace/.claude-code/
+   sudo chown node:node /data/workspace/.claude-code/.credentials.json
+   \`\`\`
+5. Once done, credentials persist across restarts — no need to redo.
 
 If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses that instead — no login needed.
 `.replace(/'/g, "'\\''");
