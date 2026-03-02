@@ -352,6 +352,9 @@ export class FlyProvisioner {
           dangerouslyDisableDeviceAuth: true,
         },
       },
+      channels: {
+        discord: { enabled: false },
+      },
     };
 
     // Escape single quotes in JSON for shell
@@ -1002,6 +1005,9 @@ If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses t
           dangerouslyAllowHostHeaderOriginFallback: true,
           dangerouslyDisableDeviceAuth: true,
         },
+      },
+      channels: {
+        discord: { enabled: false },
       },
     };
 
