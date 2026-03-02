@@ -427,7 +427,7 @@ If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses t
         httpget: {
           type: "http",
           port: 3000,
-          path: "/",
+          path: "/healthz",
           interval: "15s",
           timeout: "10s",
           grace_period: "300s",
@@ -1076,7 +1076,7 @@ If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses t
         httpget: {
           type: "http",
           port: 3000,
-          path: "/",
+          path: "/healthz",
           interval: "15s",
           timeout: "10s",
           grace_period: "300s",
