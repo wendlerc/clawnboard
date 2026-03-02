@@ -444,8 +444,8 @@ If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses t
           cmd: [
             "/bin/sh",
             "-c",
-            // Create config file if it doesn't exist, append Claude Code bootstrap snippet, then start gateway
-            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            // Create config file if it doesn't exist, append Claude Code bootstrap snippet, run doctor --fix to strip invalid keys, then start gateway
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && node dist/index.js doctor --fix 2>/dev/null; exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
@@ -1093,8 +1093,8 @@ If they have an \`ANTHROPIC_API_KEY\` set in the environment, Claude Code uses t
           cmd: [
             "/bin/sh",
             "-c",
-            // Don't overwrite config since we're restoring from snapshot; append Claude Code bootstrap snippet
-            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            // Don't overwrite config since we're restoring from snapshot; append Claude Code bootstrap snippet; doctor --fix strips invalid keys
+            `Xvfb :99 -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 & mkdir -p /data /data/workspace && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && grep -q clawnboard-claude-code /data/workspace/BOOTSTRAP.md 2>/dev/null || printf '%s' '${bootstrapSnippet}' >> /data/workspace/BOOTSTRAP.md && node dist/index.js doctor --fix 2>/dev/null; exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
           ],
         },
       ],
