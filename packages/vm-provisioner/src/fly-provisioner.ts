@@ -79,6 +79,35 @@ function buildMoltbotGatewayCmd(configJson: string, machineEnv: Record<string, s
   return `${base} && ${gateway}`;
 }
 
+function buildDiscordChannelConfig(
+  machineEnv: Record<string, string>
+): { discord: Record<string, unknown> } | undefined {
+  const token = machineEnv.DISCORD_BOT_TOKEN?.trim();
+  if (!token) return undefined;
+
+  const guildId = machineEnv.DISCORD_GUILD_ID?.trim();
+  const dmPolicy = machineEnv.DISCORD_DM_POLICY?.trim() || "pairing";
+  const requireMention = machineEnv.DISCORD_REQUIRE_MENTION?.trim().toLowerCase() === "true";
+
+  const discord: Record<string, unknown> = {
+    enabled: true,
+    token,
+    groupPolicy: "allowlist",
+    dmPolicy,
+    streaming: "off",
+  };
+
+  if (guildId) {
+    discord.guilds = {
+      [guildId]: {
+        requireMention,
+      },
+    };
+  }
+
+  return { discord };
+}
+
 /**
  * Fly.io provisioner for OpenClaw moltbots.
  *
@@ -323,7 +352,9 @@ export class FlyProvisioner {
     // 4. Create the machine with a unique gateway token
     // Token is stored in Fly.io metadata for secure retrieval later
     const gatewayToken = crypto.randomUUID();
-    const primaryModel = config.model || "anthropic/claude-sonnet-4-5";
+    const primaryModel = config.model || "anthropic/claude-opus-4-6";
+
+    const discordChannels = buildDiscordChannelConfig(config.env || {});
 
     // Build OpenClaw config with selected model
     const openclawConfig = {
@@ -332,7 +363,7 @@ export class FlyProvisioner {
           workspace: "/data/workspace",
           model: {
             primary: primaryModel,
-            fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
+            fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
           },
           maxConcurrent: 4,
         },
@@ -345,6 +376,7 @@ export class FlyProvisioner {
           "openrouter:default": { mode: "token", provider: "openrouter" },
         },
       },
+      ...(discordChannels ? { channels: discordChannels } : {}),
       gateway: {
         mode: "local",
         bind: "lan",
@@ -891,7 +923,9 @@ export class FlyProvisioner {
 
     // 4. Create the machine with gateway token
     const gatewayToken = crypto.randomUUID();
-    const primaryModel = config.model || "anthropic/claude-sonnet-4-5";
+    const primaryModel = config.model || "anthropic/claude-opus-4-6";
+
+    const discordChannels = buildDiscordChannelConfig(config.env || {});
 
     // Build OpenClaw config with selected model
     const openclawConfig = {
@@ -900,7 +934,7 @@ export class FlyProvisioner {
           workspace: "/data/workspace",
           model: {
             primary: primaryModel,
-            fallbacks: ["anthropic/claude-sonnet-4-5", "openai/gpt-4o"],
+            fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
           },
           maxConcurrent: 4,
         },
@@ -913,6 +947,7 @@ export class FlyProvisioner {
           "openrouter:default": { mode: "token", provider: "openrouter" },
         },
       },
+      ...(discordChannels ? { channels: discordChannels } : {}),
       gateway: {
         mode: "local",
         bind: "lan",

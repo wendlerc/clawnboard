@@ -47,6 +47,10 @@ export const AI_MODELS = {
     provider: "anthropic",
     label: "Claude 4.5 Sonnet",
   },
+  "anthropic/claude-opus-4-6": {
+    provider: "anthropic",
+    label: "Claude 4.6 Opus",
+  },
   "anthropic/claude-opus-4-5": {
     provider: "anthropic",
     label: "Claude 4.5 Opus",
@@ -68,4 +72,4 @@ export const AI_MODELS = {
 } as const;
 
 export type AIModelId = keyof typeof AI_MODELS;
-export const DEFAULT_MODEL: AIModelId = "anthropic/claude-sonnet-4-5";
+export const DEFAULT_MODEL: AIModelId = "anthropic/claude-opus-4-6";

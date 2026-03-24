@@ -200,6 +200,46 @@ describe("FlyProvisioner", () => {
       expect(cmd).toContain(".clawnboard-setup-token-done");
       expect(cmd).toContain("starting gateway anyway");
     });
+
+    it("should seed discord channel config when DISCORD_BOT_TOKEN is set", async () => {
+      const mockMachine = createMockMachine({ state: "created" });
+
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({
+          viewer: { organizations: { nodes: [{ id: "org-123", slug: "personal" }] } },
+        })
+      );
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({ createApp: { app: { id: "app-123" } } })
+      );
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({ allocateIpAddress: { ipAddress: { id: "ip-123" } } })
+      );
+      mockFetch.mockResolvedValueOnce(mockRestResponse({ id: "vol-123" }));
+      mockFetch.mockResolvedValueOnce(mockRestResponse(mockMachine));
+      mockFetch.mockResolvedValueOnce(mockRestResponse({}, 204));
+      mockFetch.mockResolvedValueOnce(mockRestResponse([createMockMachine({ state: "started" })]));
+
+      await provisioner.createMoltbot({
+        name: "discord-bot",
+        env: {
+          DISCORD_BOT_TOKEN: "discord-token",
+          DISCORD_GUILD_ID: "1234567890",
+          DISCORD_DM_POLICY: "pairing",
+          DISCORD_REQUIRE_MENTION: "false",
+        },
+      });
+
+      const machineCall = mockFetch.mock.calls.find(
+        (call) => call[0].includes("/machines") && call[1].method === "POST" && !call[0].includes("/metadata")
+      );
+      expect(machineCall).toBeDefined();
+      const body = JSON.parse(machineCall![1].body);
+      const cmd = String(body.config.processes[0].cmd[2]);
+      expect(cmd).toContain("\"channels\":{\"discord\":");
+      expect(cmd).toContain("\"token\":\"discord-token\"");
+      expect(cmd).toContain("\"guilds\":{\"1234567890\":{\"requireMention\":false}}");
+    });
   });
 
   describe("getMoltbot", () => {

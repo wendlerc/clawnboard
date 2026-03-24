@@ -39,7 +39,7 @@ const createMoltbotSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
   size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
-  model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
+  model: z.string().optional().default("anthropic/claude-opus-4-6"),
 });
 
 // Get AI provider keys from environment (passed through to Fly machine env).
@@ -59,6 +59,28 @@ function getAIProviderEnv(): Record<string, string> {
   if (process.env.OPENROUTER_API_KEY) {
     env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
   }
+  return env;
+}
+
+// Optional Discord bootstrap values for new moltbots.
+// If DISCORD_BOT_TOKEN is set, provisioner seeds channels.discord on first boot.
+function getDiscordBootstrapEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+
+  const token = process.env.DISCORD_BOT_TOKEN?.trim();
+  if (!token) return env;
+
+  env.DISCORD_BOT_TOKEN = token;
+  if (process.env.DISCORD_GUILD_ID?.trim()) {
+    env.DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID.trim();
+  }
+  if (process.env.DISCORD_DM_POLICY?.trim()) {
+    env.DISCORD_DM_POLICY = process.env.DISCORD_DM_POLICY.trim();
+  }
+  if (process.env.DISCORD_REQUIRE_MENTION?.trim()) {
+    env.DISCORD_REQUIRE_MENTION = process.env.DISCORD_REQUIRE_MENTION.trim();
+  }
+
   return env;
 }
 
@@ -165,6 +187,7 @@ moltbotsRouter.post("/", async (c) => {
 
   try {
     const aiEnv = getAIProviderEnv();
+    const discordEnv = getDiscordBootstrapEnv();
     if (!hasConfiguredAiProvider()) {
       return c.json(
         {
@@ -184,7 +207,7 @@ moltbotsRouter.post("/", async (c) => {
       name: data.name,
       size: data.size,
       model: data.model,
-      env: aiEnv,
+      env: { ...aiEnv, ...discordEnv },
     });
 
     const moltbot: Moltbot = {
@@ -634,7 +657,7 @@ const deployFromSnapshotSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
   size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
-  model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
+  model: z.string().optional().default("anthropic/claude-opus-4-6"),
   sourceApp: z.string(),  // The app name where the snapshot exists
 });
 
@@ -649,6 +672,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
 
   try {
     const aiEnv = getAIProviderEnv();
+    const discordEnv = getDiscordBootstrapEnv();
     if (!hasConfiguredAiProvider()) {
       return c.json(
         {
@@ -670,7 +694,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
       newName: data.name,
       size: data.size,
       model: data.model,
-      env: aiEnv,
+      env: { ...aiEnv, ...discordEnv },
     });
 
     const moltbot: Moltbot = {

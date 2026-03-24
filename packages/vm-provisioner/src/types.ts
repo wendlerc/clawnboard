@@ -20,7 +20,7 @@ export interface MoltbotConfig {
   name: string;
   /** VM size (affects memory): 1gb, 2gb (recommended), or 4gb */
   size?: "1gb" | "2gb" | "4gb";
-  /** Default AI model (e.g., "anthropic/claude-sonnet-4-5") */
+  /** Default AI model (e.g., "anthropic/claude-opus-4-6") */
   model?: string;
   /** Custom Docker image (default: ghcr.io/openclaw/openclaw:latest) */
   image?: string;
