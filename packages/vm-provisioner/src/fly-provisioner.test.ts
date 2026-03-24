@@ -51,7 +51,7 @@ describe("FlyProvisioner", () => {
     config: {
       image: "ghcr.io/openclaw/openclaw:latest",
       env: {},
-      guest: { cpu_kind: "shared", cpus: 2, memory_mb: 2048 },
+      guest: { cpu_kind: "shared", cpus: 1, memory_mb: 2048 },
     },
     ...overrides,
   });

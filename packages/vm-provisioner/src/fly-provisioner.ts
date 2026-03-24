@@ -27,6 +27,7 @@ import type {
   FlyVolumeSnapshot,
 } from "./types.js";
 import { createLogger, type Logger } from "./logger.js";
+import { DEFAULT_MODEL } from "@clawnboard/shared";
 
 const FLY_API_BASE = "https://api.machines.dev/v1";
 const FLY_API_GRAPHQL = "https://api.fly.io/graphql";
@@ -61,8 +62,8 @@ function buildMoltbotGatewayCmd(configJson: string, machineEnv: Record<string, s
   const base =
     `mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json`;
   const gateway = `exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`;
-  /** 20 minutes — long enough for slow networks; still bounded so machines cannot hang forever */
-  const onboardTimeoutSec = 1200;
+  /** 4 minutes — must complete before Fly's 300s health check grace period expires */
+  const onboardTimeoutSec = 240;
 
   if (machineEnv.ANTHROPIC_SETUP_TOKEN?.trim()) {
     const onboard =
@@ -106,6 +107,47 @@ function buildDiscordChannelConfig(
   }
 
   return { discord };
+}
+
+function buildOpenclawConfig(
+  primaryModel: string,
+  appName: string,
+  discordChannels?: { discord: Record<string, unknown> }
+) {
+  return {
+    agents: {
+      defaults: {
+        workspace: "/data/workspace",
+        model: {
+          primary: primaryModel,
+          fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
+        },
+        maxConcurrent: 4,
+      },
+      list: [{ id: "main", default: true }],
+    },
+    auth: {
+      profiles: {
+        "anthropic:default": { mode: "token", provider: "anthropic" },
+        "openai:default": { mode: "token", provider: "openai" },
+        "openrouter:default": { mode: "token", provider: "openrouter" },
+      },
+    },
+    ...(discordChannels ? { channels: discordChannels } : {}),
+    gateway: {
+      mode: "local",
+      bind: "lan",
+      trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
+      controlUi: {
+        allowInsecureAuth: true,
+        // Skip browser device pairing for Control UI; gateway token is enough on Fly (no one to click "approve")
+        dangerouslyDisableDeviceAuth: true,
+        // Required since OpenClaw ~2026.2.26: browser origin must match when using the Fly HTTPS URL
+        allowedOrigins: [`https://${appName}.fly.dev`, "http://localhost:3000", "http://127.0.0.1:3000"],
+      },
+    },
+    meta: { lastTouchedVersion: "2026.1.29" },
+  };
 }
 
 /**
@@ -352,45 +394,12 @@ export class FlyProvisioner {
     // 4. Create the machine with a unique gateway token
     // Token is stored in Fly.io metadata for secure retrieval later
     const gatewayToken = crypto.randomUUID();
-    const primaryModel = config.model || "anthropic/claude-opus-4-6";
+    const primaryModel = config.model || DEFAULT_MODEL;
 
     const discordChannels = buildDiscordChannelConfig(config.env || {});
 
     // Build OpenClaw config with selected model
-    const openclawConfig = {
-      agents: {
-        defaults: {
-          workspace: "/data/workspace",
-          model: {
-            primary: primaryModel,
-            fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
-          },
-          maxConcurrent: 4,
-        },
-        list: [{ id: "main", default: true }],
-      },
-      auth: {
-        profiles: {
-          "anthropic:default": { mode: "token", provider: "anthropic" },
-          "openai:default": { mode: "token", provider: "openai" },
-          "openrouter:default": { mode: "token", provider: "openrouter" },
-        },
-      },
-      ...(discordChannels ? { channels: discordChannels } : {}),
-      gateway: {
-        mode: "local",
-        bind: "lan",
-        trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: {
-          allowInsecureAuth: true,
-          // Skip browser device pairing for Control UI; gateway token is enough on Fly (no one to click "approve")
-          dangerouslyDisableDeviceAuth: true,
-          // Required since OpenClaw ~2026.2.26: browser origin must match when using the Fly HTTPS URL
-          allowedOrigins: [`https://${appName}.fly.dev`, "http://localhost:3000", "http://127.0.0.1:3000"],
-        },
-      },
-      meta: { lastTouchedVersion: "2026.1.29" },
-    };
+    const openclawConfig = buildOpenclawConfig(primaryModel, appName, discordChannels);
 
     // Escape single quotes in JSON for shell
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
@@ -923,43 +932,12 @@ export class FlyProvisioner {
 
     // 4. Create the machine with gateway token
     const gatewayToken = crypto.randomUUID();
-    const primaryModel = config.model || "anthropic/claude-opus-4-6";
+    const primaryModel = config.model || DEFAULT_MODEL;
 
     const discordChannels = buildDiscordChannelConfig(config.env || {});
 
     // Build OpenClaw config with selected model
-    const openclawConfig = {
-      agents: {
-        defaults: {
-          workspace: "/data/workspace",
-          model: {
-            primary: primaryModel,
-            fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
-          },
-          maxConcurrent: 4,
-        },
-        list: [{ id: "main", default: true }],
-      },
-      auth: {
-        profiles: {
-          "anthropic:default": { mode: "token", provider: "anthropic" },
-          "openai:default": { mode: "token", provider: "openai" },
-          "openrouter:default": { mode: "token", provider: "openrouter" },
-        },
-      },
-      ...(discordChannels ? { channels: discordChannels } : {}),
-      gateway: {
-        mode: "local",
-        bind: "lan",
-        trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
-        controlUi: {
-          allowInsecureAuth: true,
-          dangerouslyDisableDeviceAuth: true,
-          allowedOrigins: [`https://${appName}.fly.dev`, "http://localhost:3000", "http://127.0.0.1:3000"],
-        },
-      },
-      meta: { lastTouchedVersion: "2026.1.29" },
-    };
+    const openclawConfig = buildOpenclawConfig(primaryModel, appName, discordChannels);
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 

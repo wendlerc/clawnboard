@@ -16,6 +16,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { FlyProvisioner } from "@clawnboard/vm-provisioner";
+import { DEFAULT_MODEL } from "@clawnboard/shared";
 import type { Moltbot, MoltbotSize, VolumeSnapshot } from "@clawnboard/shared";
 
 export const moltbotsRouter = new Hono();
@@ -39,7 +40,7 @@ const createMoltbotSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
   size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
-  model: z.string().optional().default("anthropic/claude-opus-4-6"),
+  model: z.string().optional().default(DEFAULT_MODEL),
 });
 
 // Get AI provider keys from environment (passed through to Fly machine env).
@@ -84,10 +85,6 @@ function getDiscordBootstrapEnv(): Record<string, string> {
   return env;
 }
 
-function hasConfiguredAiProvider(): boolean {
-  const e = getAIProviderEnv();
-  return Object.keys(e).length > 0;
-}
 
 /**
  * List all moltbots
@@ -188,7 +185,7 @@ moltbotsRouter.post("/", async (c) => {
   try {
     const aiEnv = getAIProviderEnv();
     const discordEnv = getDiscordBootstrapEnv();
-    if (!hasConfiguredAiProvider()) {
+    if (Object.keys(aiEnv).length === 0) {
       return c.json(
         {
           success: false,
@@ -657,7 +654,7 @@ const deployFromSnapshotSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
   size: z.enum(["1gb", "2gb", "4gb"]).default("2gb"),
-  model: z.string().optional().default("anthropic/claude-opus-4-6"),
+  model: z.string().optional().default(DEFAULT_MODEL),
   sourceApp: z.string(),  // The app name where the snapshot exists
 });
 
@@ -673,7 +670,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
   try {
     const aiEnv = getAIProviderEnv();
     const discordEnv = getDiscordBootstrapEnv();
-    if (!hasConfiguredAiProvider()) {
+    if (Object.keys(aiEnv).length === 0) {
       return c.json(
         {
           success: false,

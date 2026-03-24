@@ -50,12 +50,14 @@ healthRouter.get("/providers", (c) => {
     return true;
   };
 
-  // Claude Code CLI setup-token (Claude subscription); OpenClaw uses sk-ant-oat01- prefix
+  // Claude Code CLI setup-token (Claude subscription)
   const isAnthropicSetupToken = (key: string | undefined) => {
     if (!key?.trim()) return false;
     const t = key.trim();
     if (t.includes("paste") || t.includes("your-")) return false;
-    return t.startsWith("sk-ant-oat01-") && t.length >= 80;
+    // Accept any token with the Anthropic prefix; don't over-constrain format
+    // in case Anthropic changes prefix versions or token length
+    return t.startsWith("sk-ant-") && t.length >= 40;
   };
 
   const anthropicApiKey = isRealKey(process.env.ANTHROPIC_API_KEY);
