@@ -14,7 +14,20 @@ app.use("*", prettyJSON());
 app.use(
   "*",
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: (origin) => {
+      const fromEnv = process.env.CORS_ORIGIN?.split(",").map((s) => s.trim()).filter(Boolean);
+      if (fromEnv?.length) {
+        return fromEnv.includes(origin ?? "") ? origin : fromEnv[0];
+      }
+      // Dev: allow Next.js on localhost or 127.0.0.1 (any port)
+      if (!origin) {
+        return "http://localhost:3000";
+      }
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return origin;
+      }
+      return "http://localhost:3000";
+    },
     credentials: true,
   })
 );

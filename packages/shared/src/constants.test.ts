@@ -14,10 +14,10 @@ describe("Constants", () => {
       expect(VM_SPECS["4gb"].memoryMb).toBeGreaterThan(VM_SPECS["2gb"].memoryMb);
     });
 
-    it("should have 2 CPUs for all sizes", () => {
-      expect(VM_SPECS["1gb"].cpus).toBe(2);
-      expect(VM_SPECS["2gb"].cpus).toBe(2);
-      expect(VM_SPECS["4gb"].cpus).toBe(2);
+    it("should have 1 CPU for all sizes", () => {
+      expect(VM_SPECS["1gb"].cpus).toBe(1);
+      expect(VM_SPECS["2gb"].cpus).toBe(1);
+      expect(VM_SPECS["4gb"].cpus).toBe(1);
     });
 
     it("should have labels and descriptions for each size", () => {
@@ -30,8 +30,8 @@ describe("Constants", () => {
       }
     });
 
-    it("should mark 2gb as recommended in the label", () => {
-      expect(VM_SPECS["2gb"].label).toContain("Recommended");
+    it("should label 2gb as the mid tier", () => {
+      expect(VM_SPECS["2gb"].label).toContain("2GB");
     });
   });
 });

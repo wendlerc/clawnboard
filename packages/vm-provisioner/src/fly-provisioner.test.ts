@@ -2,6 +2,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FlyProvisioner } from "./fly-provisioner.js";
 import type { ProvisionerConfig, FlyMachine } from "./types.js";
 
+// Avoid real `fly ssh` during createMoltbot / startMoltbot (installSudo + repair pairing)
+vi.mock("node:child_process", () => ({
+  exec: vi.fn(
+    (
+      _cmd: string,
+      optsOrCb?: unknown,
+      cb?: (err: Error | null, stdout?: string, stderr?: string) => void
+    ) => {
+      const callback =
+        typeof optsOrCb === "function"
+          ? (optsOrCb as (err: Error | null, stdout?: string, stderr?: string) => void)
+          : cb;
+      if (callback) queueMicrotask(() => callback(null, "", ""));
+    }
+  ),
+}));
+
 // Mock crypto.randomUUID
 vi.mock("node:crypto", () => ({
   default: {
@@ -88,6 +105,8 @@ describe("FlyProvisioner", () => {
       mockFetch.mockResolvedValueOnce(mockRestResponse(mockMachine));
       // Mock set metadata
       mockFetch.mockResolvedValueOnce(mockRestResponse({}, 204));
+      // waitForState: GET /machines until started
+      mockFetch.mockResolvedValueOnce(mockRestResponse([createMockMachine({ state: "started" })]));
 
       const moltbot = await provisioner.createMoltbot({
         name: "test-moltbot",
@@ -126,6 +145,7 @@ describe("FlyProvisioner", () => {
       mockFetch.mockResolvedValueOnce(mockRestResponse({ id: "vol-123" }));
       mockFetch.mockResolvedValueOnce(mockRestResponse(mockMachine));
       mockFetch.mockResolvedValueOnce(mockRestResponse({}, 204));
+      mockFetch.mockResolvedValueOnce(mockRestResponse([createMockMachine({ state: "started" })]));
 
       await provisioner.createMoltbot({
         name: "test-moltbot",
@@ -159,6 +179,7 @@ describe("FlyProvisioner", () => {
       mockFetch.mockResolvedValueOnce(mockRestResponse({ id: "vol-123" }));
       mockFetch.mockResolvedValueOnce(mockRestResponse(mockMachine));
       mockFetch.mockResolvedValueOnce(mockRestResponse({}, 204));
+      mockFetch.mockResolvedValueOnce(mockRestResponse([createMockMachine({ state: "started" })]));
 
       const longToken = `${"sk-ant-oat01-"}${"a".repeat(80)}`;
 
@@ -173,8 +194,11 @@ describe("FlyProvisioner", () => {
       expect(machineCall).toBeDefined();
       const body = JSON.parse(machineCall![1].body);
       expect(body.config.env.ANTHROPIC_SETUP_TOKEN).toBe(longToken);
-      expect(String(body.config.processes[0].cmd[1])).toContain("onboard --non-interactive");
-      expect(String(body.config.processes[0].cmd[1])).toContain(".clawnboard-setup-token-done");
+      const cmd = String(body.config.processes[0].cmd[2]);
+      expect(cmd).toContain("timeout ");
+      expect(cmd).toContain("onboard --non-interactive");
+      expect(cmd).toContain(".clawnboard-setup-token-done");
+      expect(cmd).toContain("starting gateway anyway");
     });
   });
 
