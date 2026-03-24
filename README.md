@@ -96,6 +96,8 @@ FLY_REGION=iad
 
 # AI Provider Keys (at least one required)
 ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
+# Or Claude subscription (run `claude setup-token` — do not set both API key and setup-token)
+# ANTHROPIC_SETUP_TOKEN=sk-ant-oat01-...
 OPENAI_API_KEY=sk-xxxxx
 
 # Server
@@ -172,7 +174,8 @@ fly ssh console -a moltbot-<name>
 |----------|----------|-------------|
 | `FLY_API_TOKEN` | Yes | Fly.io org token (`fly tokens create org`) |
 | `FLY_REGION` | No | Deploy region (default: `iad`) |
-| `ANTHROPIC_API_KEY` | One of these | Anthropic API key for Claude models |
+| `ANTHROPIC_API_KEY` | One of these | Anthropic API key for Claude models (omit if using setup-token) |
+| `ANTHROPIC_SETUP_TOKEN` | One of these | Claude subscription: token from `claude setup-token` ([OpenClaw docs](https://docs.openclaw.ai/providers/anthropic)); passed to new moltbots; first boot runs `openclaw onboard` with subscription auth |
 | `OPENAI_API_KEY` | One of these | OpenAI API key for GPT models |
 | `PORT` | No | API server port (default: `3001`) |
 
@@ -227,7 +230,7 @@ clawnboard/
 
 ### "At least one AI provider API key must be set"
 
-Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to `apps/api/.env`
+Add `ANTHROPIC_API_KEY`, `ANTHROPIC_SETUP_TOKEN`, or `OPENAI_API_KEY` to `apps/api/.env`
 
 ### Moltbot stuck on "Starting" or "Booting"
 

@@ -50,6 +50,29 @@ const GATEWAY_TOKEN_METADATA_KEY = "gateway_token";
 const HIDDEN_SNAPSHOTS_METADATA_KEY = "hidden_snapshots";
 
 /**
+ * First-boot: run OpenClaw non-interactive onboard with a Claude setup-token
+ * (see https://docs.openclaw.ai/providers/anthropic — Option B).
+ * Marker file prevents re-running on restarts.
+ */
+function buildMoltbotGatewayCmd(configJson: string, machineEnv: Record<string, string>): string {
+  const base =
+    `mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json`;
+  const gateway = `exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`;
+
+  if (machineEnv.ANTHROPIC_SETUP_TOKEN?.trim()) {
+    const onboard =
+      `if [ -n "$ANTHROPIC_SETUP_TOKEN" ] && [ ! -f /data/.clawnboard-setup-token-done ]; then ` +
+      `node dist/index.js onboard --non-interactive --accept-risk --auth-choice token --token-provider anthropic --token "$ANTHROPIC_SETUP_TOKEN" ` +
+      `--skip-daemon --skip-channels --skip-skills --skip-health --gateway-port 3000 --gateway-bind lan --gateway-auth token --gateway-token "$OPENCLAW_GATEWAY_TOKEN" && ` +
+      `touch /data/.clawnboard-setup-token-done || exit 1; ` +
+      `fi`;
+    return `${base} && ${onboard} && ${gateway}`;
+  }
+
+  return `${base} && ${gateway}`;
+}
+
+/**
  * Fly.io provisioner for OpenClaw moltbots.
  *
  * Each moltbot is deployed as its own Fly.io app, giving it a unique URL.
@@ -327,18 +350,20 @@ export class FlyProvisioner {
     // Escape single quotes in JSON for shell
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
+    const machineEnv: Record<string, string> = {
+      NODE_ENV: "production",
+      OPENCLAW_STATE_DIR: "/data",
+      OPENCLAW_PREFER_PNPM: "1",
+      NODE_OPTIONS: "--max-old-space-size=1536",
+      // Gateway authentication - unique token per moltbot
+      // Token is also stored in Fly.io metadata for secure retrieval
+      OPENCLAW_GATEWAY_TOKEN: gatewayToken,
+      ...config.env,
+    };
+
     const machineConfig: FlyMachineConfig = {
       image: config.image || "ghcr.io/openclaw/openclaw:latest",
-      env: {
-        NODE_ENV: "production",
-        OPENCLAW_STATE_DIR: "/data",
-        OPENCLAW_PREFER_PNPM: "1",
-        NODE_OPTIONS: "--max-old-space-size=1536",
-        // Gateway authentication - unique token per moltbot
-        // Token is also stored in Fly.io metadata for secure retrieval
-        OPENCLAW_GATEWAY_TOKEN: gatewayToken,
-        ...config.env,
-      },
+      env: machineEnv,
       guest: SIZE_SPECS[config.size || "2gb"],
       // Run as root so the agent can install packages (e.g., browser deps)
       init: {
@@ -381,7 +406,7 @@ export class FlyProvisioner {
             "-c",
             // Create config file if it doesn't exist, then start gateway
             // Config structure matches: https://docs.openclaw.ai/platforms/fly
-            `mkdir -p /data && [ -f /data/openclaw.json ] || printf '%s' '${configJson}' > /data/openclaw.json && exec node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`,
+            buildMoltbotGatewayCmd(configJson, machineEnv),
           ],
         },
       ],

@@ -141,6 +141,41 @@ describe("FlyProvisioner", () => {
       expect(body.config.env.ANTHROPIC_API_KEY).toBe("sk-ant-test");
       expect(body.config.env.OPENCLAW_GATEWAY_TOKEN).toBe("test-uuid-token-12345");
     });
+
+    it("should use onboard bootstrap when ANTHROPIC_SETUP_TOKEN is set", async () => {
+      const mockMachine = createMockMachine({ state: "created" });
+
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({
+          viewer: { organizations: { nodes: [{ id: "org-123", slug: "personal" }] } },
+        })
+      );
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({ createApp: { app: { id: "app-123" } } })
+      );
+      mockFetch.mockResolvedValueOnce(
+        mockGraphQLResponse({ allocateIpAddress: { ipAddress: { id: "ip-123" } } })
+      );
+      mockFetch.mockResolvedValueOnce(mockRestResponse({ id: "vol-123" }));
+      mockFetch.mockResolvedValueOnce(mockRestResponse(mockMachine));
+      mockFetch.mockResolvedValueOnce(mockRestResponse({}, 204));
+
+      const longToken = `${"sk-ant-oat01-"}${"a".repeat(80)}`;
+
+      await provisioner.createMoltbot({
+        name: "test-moltbot",
+        env: { ANTHROPIC_SETUP_TOKEN: longToken },
+      });
+
+      const machineCall = mockFetch.mock.calls.find(
+        (call) => call[0].includes("/machines") && call[1].method === "POST" && !call[0].includes("/metadata")
+      );
+      expect(machineCall).toBeDefined();
+      const body = JSON.parse(machineCall![1].body);
+      expect(body.config.env.ANTHROPIC_SETUP_TOKEN).toBe(longToken);
+      expect(String(body.config.processes[0].cmd[1])).toContain("onboard --non-interactive");
+      expect(String(body.config.processes[0].cmd[1])).toContain(".clawnboard-setup-token-done");
+    });
   });
 
   describe("getMoltbot", () => {

@@ -42,10 +42,15 @@ const createMoltbotSchema = z.object({
   model: z.string().optional().default("anthropic/claude-sonnet-4-5"),
 });
 
-// Get AI provider keys from environment
+// Get AI provider keys from environment (passed through to Fly machine env).
+// ANTHROPIC_SETUP_TOKEN: Claude subscription via `claude setup-token` (OpenClaw onboard --auth-choice token).
+// When set, we do not pass ANTHROPIC_API_KEY so OpenClaw uses subscription auth only for Anthropic.
 function getAIProviderEnv(): Record<string, string> {
   const env: Record<string, string> = {};
-  if (process.env.ANTHROPIC_API_KEY) {
+  const setupToken = process.env.ANTHROPIC_SETUP_TOKEN?.trim();
+  if (setupToken) {
+    env.ANTHROPIC_SETUP_TOKEN = setupToken;
+  } else if (process.env.ANTHROPIC_API_KEY) {
     env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   }
   if (process.env.OPENAI_API_KEY) {
@@ -55,6 +60,11 @@ function getAIProviderEnv(): Record<string, string> {
     env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
   }
   return env;
+}
+
+function hasConfiguredAiProvider(): boolean {
+  const e = getAIProviderEnv();
+  return Object.keys(e).length > 0;
 }
 
 /**
@@ -155,13 +165,14 @@ moltbotsRouter.post("/", async (c) => {
 
   try {
     const aiEnv = getAIProviderEnv();
-    if (Object.keys(aiEnv).length === 0) {
+    if (!hasConfiguredAiProvider()) {
       return c.json(
         {
           success: false,
           error: {
             code: "MISSING_API_KEY",
-            message: "At least one AI provider API key (ANTHROPIC_API_KEY or OPENAI_API_KEY) must be set in .env",
+            message:
+              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN (Claude subscription), OPENAI_API_KEY, or OPENROUTER_API_KEY in apps/api/.env",
           },
         },
         400
@@ -638,13 +649,14 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
 
   try {
     const aiEnv = getAIProviderEnv();
-    if (Object.keys(aiEnv).length === 0) {
+    if (!hasConfiguredAiProvider()) {
       return c.json(
         {
           success: false,
           error: {
             code: "MISSING_API_KEY",
-            message: "At least one AI provider API key must be set",
+            message:
+              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, OPENAI_API_KEY, or OPENROUTER_API_KEY",
           },
         },
         400

@@ -19,6 +19,8 @@ export default function SettingsPage() {
   } | null>(null);
   const [providers, setProviders] = useState<{
     anthropic: boolean;
+    anthropicApiKey?: boolean;
+    anthropicSetupToken?: boolean;
     openai: boolean;
     openrouter: boolean;
   } | null>(null);
@@ -107,7 +109,7 @@ export default function SettingsPage() {
               <span>API Keys</span>
             </CardTitle>
             <CardDescription>
-              AI provider keys configured in your .env file
+              AI provider credentials configured in your .env file
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -119,11 +121,30 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-2 font-mono text-sm">
                 <div className="flex items-center justify-between">
-                  <span className={providers?.anthropic ? "" : "text-muted-foreground"}>
+                  <span
+                    className={
+                      (providers?.anthropicApiKey ??
+                        (providers?.anthropic && !providers?.anthropicSetupToken))
+                        ? ""
+                        : "text-muted-foreground"
+                    }
+                  >
                     ANTHROPIC_API_KEY
                   </span>
                   <span className="text-muted-foreground mx-2 flex-1 border-b border-dotted border-muted-foreground/30" />
-                  {providers?.anthropic ? (
+                  {(providers?.anthropicApiKey ??
+                  (providers?.anthropic && !providers?.anthropicSetupToken)) ? (
+                    <span className="text-green-600">configured</span>
+                  ) : (
+                    <span className="text-muted-foreground">not set</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={providers?.anthropicSetupToken ? "" : "text-muted-foreground"}>
+                    ANTHROPIC_SETUP_TOKEN
+                  </span>
+                  <span className="text-muted-foreground mx-2 flex-1 border-b border-dotted border-muted-foreground/30" />
+                  {providers?.anthropicSetupToken ? (
                     <span className="text-green-600">configured</span>
                   ) : (
                     <span className="text-muted-foreground">not set</span>

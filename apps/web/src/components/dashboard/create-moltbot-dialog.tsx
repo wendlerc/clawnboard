@@ -33,6 +33,8 @@ interface CreateMoltbotDialogProps {
 
 interface ProviderStatus {
   anthropic: boolean;
+  anthropicApiKey?: boolean;
+  anthropicSetupToken?: boolean;
   openai: boolean;
   openrouter: boolean;
 }
@@ -197,7 +199,9 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
 
           {!hasAnyProvider && (
             <p className="text-sm text-destructive">
-              No AI provider API keys configured. Add ANTHROPIC_API_KEY or OPENAI_API_KEY to your .env file.
+              No AI provider configured. Add ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN (Claude subscription via{" "}
+              <code className="bg-muted px-1 rounded">claude setup-token</code>), OPENAI_API_KEY, or OPENROUTER_API_KEY to{" "}
+              <code className="bg-muted px-1 rounded">apps/api/.env</code>.
             </p>
           )}
 

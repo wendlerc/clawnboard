@@ -50,9 +50,22 @@ healthRouter.get("/providers", (c) => {
     return true;
   };
 
+  // Claude Code CLI setup-token (Claude subscription); OpenClaw uses sk-ant-oat01- prefix
+  const isAnthropicSetupToken = (key: string | undefined) => {
+    if (!key?.trim()) return false;
+    const t = key.trim();
+    if (t.includes("paste") || t.includes("your-")) return false;
+    return t.startsWith("sk-ant-oat01-") && t.length >= 80;
+  };
+
+  const anthropicApiKey = isRealKey(process.env.ANTHROPIC_API_KEY);
+  const anthropicSetupToken = isAnthropicSetupToken(process.env.ANTHROPIC_SETUP_TOKEN);
+
   return c.json({
     providers: {
-      anthropic: isRealKey(process.env.ANTHROPIC_API_KEY),
+      anthropic: anthropicApiKey || anthropicSetupToken,
+      anthropicApiKey,
+      anthropicSetupToken,
       openai: isRealKey(process.env.OPENAI_API_KEY),
       openrouter: isRealKey(process.env.OPENROUTER_API_KEY),
     },
