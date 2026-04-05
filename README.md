@@ -342,6 +342,39 @@ Environment variables passed to each moltbot:
 | `OPENCLAW_GATEWAY_TOKEN` | Unique per moltbot | Secure dashboard access |
 | `ANTHROPIC_API_KEY` | From your .env | AI model authentication |
 | `OPENAI_API_KEY` | From your .env | AI model authentication (if set) |
+| `GEMINI_API_KEY` | From your .env (if set) | Required for `google/...` Gemini models (for example `google/gemini-2.5-flash`) |
+| `GOOGLE_CLOUD_PROJECT_ID` | From your .env (optional) | Project hint used by some Google auth flows |
+| `OPENROUTER_API_KEY` | From your .env (if set) | Required for any `openrouter/...` model or fallback (e.g. `openrouter/free`) |
+
+Editing **Config** in the OpenClaw Control UI only changes `/data/openclaw.json`. It does **not** set API keys. For OpenRouter to work, `OPENROUTER_API_KEY` must exist in the **Fly machine environment** (same as [Discord bootstrap](https://docs.openclaw.ai/) tokens). If you add OpenRouter after the moltbot was created, set it on the Fly app:
+
+```bash
+fly secrets set OPENROUTER_API_KEY=sk-or-v1-YOUR_KEY_HERE -a moltbot-YOUR-BOT-NAME
+fly secrets deploy -a moltbot-YOUR-BOT-NAME   # if Fly reports staged secrets
+fly machine restart -a moltbot-YOUR-BOT-NAME   # or restart from the Fly dashboard so the process picks up env
+```
+
+Confirm the secret is present: `fly secrets list -a moltbot-YOUR-BOT-NAME` (you should see `OPENROUTER_API_KEY`). Your `openclaw.json` should keep `auth.profiles["openrouter:default"]` as `{ "mode": "token", "provider": "openrouter" }` (ClawnBoard seeds this for new nodes).
+
+For Gemini API models, set a secret the same way:
+
+```bash
+fly secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY -a moltbot-YOUR-BOT-NAME
+fly machine restart -a moltbot-YOUR-BOT-NAME
+```
+
+### Model Failover Defaults
+
+New moltbots are provisioned with multi-provider fallback order to avoid single-provider outages or billing policy blocks:
+
+1. `openrouter/free`
+2. `google/gemini-2.5-flash`
+3. `google/gemini-2.5-pro`
+4. `openai/gpt-4o`
+5. `anthropic/claude-sonnet-4-5`
+6. `anthropic/claude-opus-4-5`
+
+You can still set any model as primary in the Control UI config. Keep at least one non-Anthropic fallback enabled for resilience.
 
 The dashboard URL automatically includes the gateway token for authentication.
 

@@ -41,6 +41,49 @@ const SIZE_SPECS = {
   "4gb": { cpu_kind: "shared", cpus: 1, memory_mb: 4096 },
 } as const;
 
+type MoltbotVmSize = keyof typeof SIZE_SPECS;
+
+function resolveVmSize(size: MoltbotConfig["size"]): MoltbotVmSize {
+  return size ?? "2gb";
+}
+
+/** V8 heap cap (MB). Must stay below VM RAM so Fly does not OOM-kill the cgroup (native alloc + OS need headroom). */
+function nodeMaxOldSpaceSizeMb(vmSize: MoltbotVmSize): number {
+  switch (vmSize) {
+    case "1gb":
+      return 768;
+    case "2gb":
+      return 1408;
+    case "4gb":
+      return 3072;
+  }
+}
+
+/** Fewer concurrent runs on smaller VMs to limit RAM spikes. */
+function maxConcurrentForVmSize(vmSize: MoltbotVmSize): number {
+  switch (vmSize) {
+    case "1gb":
+      return 1;
+    case "2gb":
+      return 2;
+    case "4gb":
+      return 4;
+  }
+}
+
+/**
+ * Keep non-Anthropic providers early in fallback order so Anthropic policy/billing
+ * changes cannot completely block agent replies.
+ */
+const DEFAULT_MODEL_FALLBACKS = [
+  "openrouter/free",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-pro",
+  "openai/gpt-4o",
+  "anthropic/claude-sonnet-4-5",
+  "anthropic/claude-opus-4-5",
+] as const;
+
 // Prefix for moltbot app names to identify them
 const MOLTBOT_APP_PREFIX = "moltbot-";
 
@@ -112,6 +155,7 @@ function buildDiscordChannelConfig(
 function buildOpenclawConfig(
   primaryModel: string,
   appName: string,
+  vmSize: MoltbotVmSize,
   discordChannels?: { discord: Record<string, unknown> }
 ) {
   return {
@@ -120,15 +164,16 @@ function buildOpenclawConfig(
         workspace: "/data/workspace",
         model: {
           primary: primaryModel,
-          fallbacks: ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-5", "openai/gpt-4o"],
+          fallbacks: [...DEFAULT_MODEL_FALLBACKS],
         },
-        maxConcurrent: 4,
+        maxConcurrent: maxConcurrentForVmSize(vmSize),
       },
       list: [{ id: "main", default: true }],
     },
     auth: {
       profiles: {
         "anthropic:default": { mode: "token", provider: "anthropic" },
+        "google:default": { mode: "token", provider: "google" },
         "openai:default": { mode: "token", provider: "openai" },
         "openrouter:default": { mode: "token", provider: "openrouter" },
       },
@@ -398,8 +443,10 @@ export class FlyProvisioner {
 
     const discordChannels = buildDiscordChannelConfig(config.env || {});
 
+    const vmSize = resolveVmSize(config.size);
+
     // Build OpenClaw config with selected model
-    const openclawConfig = buildOpenclawConfig(primaryModel, appName, discordChannels);
+    const openclawConfig = buildOpenclawConfig(primaryModel, appName, vmSize, discordChannels);
 
     // Escape single quotes in JSON for shell
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
@@ -408,7 +455,7 @@ export class FlyProvisioner {
       NODE_ENV: "production",
       OPENCLAW_STATE_DIR: "/data",
       OPENCLAW_PREFER_PNPM: "1",
-      NODE_OPTIONS: "--max-old-space-size=1536",
+      NODE_OPTIONS: `--max-old-space-size=${nodeMaxOldSpaceSizeMb(vmSize)}`,
       // Gateway authentication - unique token per moltbot
       // Token is also stored in Fly.io metadata for secure retrieval
       OPENCLAW_GATEWAY_TOKEN: gatewayToken,
@@ -936,8 +983,10 @@ export class FlyProvisioner {
 
     const discordChannels = buildDiscordChannelConfig(config.env || {});
 
+    const vmSize = resolveVmSize(config.size);
+
     // Build OpenClaw config with selected model
-    const openclawConfig = buildOpenclawConfig(primaryModel, appName, discordChannels);
+    const openclawConfig = buildOpenclawConfig(primaryModel, appName, vmSize, discordChannels);
 
     const configJson = JSON.stringify(openclawConfig).replace(/'/g, "'\\''");
 
@@ -947,7 +996,7 @@ export class FlyProvisioner {
         NODE_ENV: "production",
         OPENCLAW_STATE_DIR: "/data",
         OPENCLAW_PREFER_PNPM: "1",
-        NODE_OPTIONS: "--max-old-space-size=1536",
+        NODE_OPTIONS: `--max-old-space-size=${nodeMaxOldSpaceSizeMb(vmSize)}`,
         OPENCLAW_GATEWAY_TOKEN: gatewayToken,
         ...config.env,
       },

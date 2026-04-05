@@ -23,7 +23,7 @@ export const moltbotsRouter = new Hono();
 
 // Initialize provisioner from environment
 function getProvisioner(): FlyProvisioner {
-  const apiToken = process.env.FLY_API_TOKEN;
+  const apiToken = process.env.FLY_API_TOKEN?.trim();
   const region = process.env.FLY_REGION || "iad";
 
   if (!apiToken) {
