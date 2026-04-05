@@ -483,13 +483,16 @@ moltbotsRouter.get("/:id/snapshots", async (c) => {
     const snapshots: VolumeSnapshot[] = rawSnapshots
       .filter((snapshot) => !hiddenIds.includes(snapshot.id))
       .map((snapshot) => {
-        const date = new Date(snapshot.created_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const processing = new Date(snapshot.created_at).getFullYear() < 2000;
+        const date = processing
+          ? "Processing..."
+          : new Date(snapshot.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
         return {
           id: snapshot.id,
           moltbotName: id,
@@ -499,7 +502,13 @@ moltbotsRouter.get("/:id/snapshots", async (c) => {
           label: `${id} - ${date}`,
         };
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => {
+        // Snapshots still processing (epoch-zero date) sort to the top
+        const aProcessing = new Date(a.createdAt).getFullYear() < 2000;
+        const bProcessing = new Date(b.createdAt).getFullYear() < 2000;
+        if (aProcessing !== bProcessing) return aProcessing ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
 
     return c.json({
       success: true,

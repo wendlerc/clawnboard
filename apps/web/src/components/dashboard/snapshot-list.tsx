@@ -66,14 +66,23 @@ export function SnapshotList({ snapshots, loading, creating, onDelete }: Snapsho
             <div>
               <p className="text-sm font-medium">{snapshot.label}</p>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {new Date(snapshot.createdAt).toLocaleString()}
-                </span>
-                <span className="flex items-center gap-1">
-                  <HardDrive className="h-3 w-3" />
-                  {snapshot.sizeGb}GB
-                </span>
+                {new Date(snapshot.createdAt).getFullYear() >= 2000 ? (
+                  <>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(snapshot.createdAt).toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <HardDrive className="h-3 w-3" />
+                      {snapshot.sizeGb}GB
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Processing...
+                  </span>
+                )}
               </div>
             </div>
           </div>

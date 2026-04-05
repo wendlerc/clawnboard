@@ -181,23 +181,20 @@ export function MoltbotDetails({ moltbotId }: MoltbotDetailsProps) {
       const data = await res.json();
       if (data.success) {
         const previousCount = snapshots.length;
-        // Poll until we get a new snapshot with valid data (2 min max)
-        for (let i = 0; i < 60; i++) {
+        // Poll until the new snapshot appears in the list (30s max)
+        for (let i = 0; i < 15; i++) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           const listRes = await fetch(`${API_URL}/api/moltbots/${moltbotId}/snapshots`);
           const listData = await listRes.json();
           if (listData.success && listData.data.length > previousCount) {
-            const newest = listData.data[0];
-            // Check if data looks valid (year > 2000 and size > 0)
-            const year = new Date(newest.createdAt).getFullYear();
-            if (year > 2000 && newest.sizeGb > 0) {
-              setSnapshots(listData.data);
-              break;
-            }
+            setSnapshots(listData.data);
+            break;
           }
           // After max retries, just use whatever we have
-          if (i === 59) {
-            setSnapshots(listData.data);
+          if (i === 14) {
+            if (listData.success) {
+              setSnapshots(listData.data);
+            }
           }
         }
       }
