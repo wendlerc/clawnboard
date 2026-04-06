@@ -21,6 +21,7 @@ export default function SettingsPage() {
     anthropic: boolean;
     anthropicApiKey?: boolean;
     anthropicSetupToken?: boolean;
+    google: boolean;
     openai: boolean;
     openrouter: boolean;
   } | null>(null);
@@ -39,7 +40,7 @@ export default function SettingsPage() {
         setProviders(providersData.providers);
       } catch {
         setStatus({ ready: false, checks: { flyio: false } });
-        setProviders({ anthropic: false, openai: false, openrouter: false });
+        setProviders({ anthropic: false, google: false, openai: false, openrouter: false });
       } finally {
         setLoading(false);
       }
@@ -145,6 +146,17 @@ export default function SettingsPage() {
                   </span>
                   <span className="text-muted-foreground mx-2 flex-1 border-b border-dotted border-muted-foreground/30" />
                   {providers?.anthropicSetupToken ? (
+                    <span className="text-green-600">configured</span>
+                  ) : (
+                    <span className="text-muted-foreground">not set</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={providers?.google ? "" : "text-muted-foreground"}>
+                    GEMINI_API_KEY
+                  </span>
+                  <span className="text-muted-foreground mx-2 flex-1 border-b border-dotted border-muted-foreground/30" />
+                  {providers?.google ? (
                     <span className="text-green-600">configured</span>
                   ) : (
                     <span className="text-muted-foreground">not set</span>

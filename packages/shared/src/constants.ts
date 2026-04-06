@@ -38,6 +38,11 @@ export const DEFAULT_VOLUME_SIZE_GB = 20;
 // Available AI models for moltbots
 // Model IDs follow OpenClaw's provider/model format
 export const AI_MODELS = {
+  // Google Gemini models
+  "google/gemini-3.1-pro-preview": {
+    provider: "google",
+    label: "Gemini 3.1 Pro Preview",
+  },
   // Anthropic Claude 4.5 models
   "anthropic/claude-haiku-4-5": {
     provider: "anthropic",
@@ -72,4 +77,4 @@ export const AI_MODELS = {
 } as const;
 
 export type AIModelId = keyof typeof AI_MODELS;
-export const DEFAULT_MODEL: AIModelId = "anthropic/claude-opus-4-6";
+export const DEFAULT_MODEL: AIModelId = "google/gemini-3.1-pro-preview";

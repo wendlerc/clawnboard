@@ -35,6 +35,7 @@ interface ProviderStatus {
   anthropic: boolean;
   anthropicApiKey?: boolean;
   anthropicSetupToken?: boolean;
+  google: boolean;
   openai: boolean;
   openrouter: boolean;
 }
@@ -47,7 +48,12 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
   const [model, setModel] = useState<AIModelId>(DEFAULT_MODEL);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderStatus>({ anthropic: false, openai: false, openrouter: false });
+  const [providers, setProviders] = useState<ProviderStatus>({
+    anthropic: false,
+    google: false,
+    openai: false,
+    openrouter: false,
+  });
 
   // Fetch available providers when dialog opens
   useEffect(() => {
@@ -70,7 +76,7 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
         })
         .catch(() => {
           // Assume all available if we can't check
-          setProviders({ anthropic: true, openai: true, openrouter: true });
+          setProviders({ anthropic: true, google: true, openai: true, openrouter: true });
         });
     }
   }, [open, model]);
@@ -110,7 +116,7 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
     return providers[provider as keyof ProviderStatus];
   };
 
-  const hasAnyProvider = providers.anthropic || providers.openai || providers.openrouter;
+  const hasAnyProvider = providers.anthropic || providers.google || providers.openai || providers.openrouter;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -200,7 +206,7 @@ export function CreateMoltbotDialog({ children }: CreateMoltbotDialogProps) {
           {!hasAnyProvider && (
             <p className="text-sm text-destructive">
               No AI provider configured. Add ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN (Claude subscription via{" "}
-              <code className="bg-muted px-1 rounded">claude setup-token</code>), OPENAI_API_KEY, or OPENROUTER_API_KEY to{" "}
+              <code className="bg-muted px-1 rounded">claude setup-token</code>), GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY to{" "}
               <code className="bg-muted px-1 rounded">apps/api/.env</code>.
             </p>
           )}

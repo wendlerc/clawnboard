@@ -54,6 +54,9 @@ function getAIProviderEnv(): Record<string, string> {
   } else if (process.env.ANTHROPIC_API_KEY) {
     env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   }
+  if (process.env.GEMINI_API_KEY) {
+    env.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  }
   if (process.env.OPENAI_API_KEY) {
     env.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   }
@@ -192,7 +195,7 @@ moltbotsRouter.post("/", async (c) => {
           error: {
             code: "MISSING_API_KEY",
             message:
-              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN (Claude subscription), OPENAI_API_KEY, or OPENROUTER_API_KEY in apps/api/.env",
+              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN (Claude subscription), GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in apps/api/.env",
           },
         },
         400
@@ -686,7 +689,7 @@ snapshotsRouter.post("/:id/deploy", async (c) => {
           error: {
             code: "MISSING_API_KEY",
             message:
-              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, OPENAI_API_KEY, or OPENROUTER_API_KEY",
+              "Configure at least one of: ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY",
           },
         },
         400

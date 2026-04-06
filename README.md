@@ -344,7 +344,7 @@ Environment variables passed to each moltbot:
 | `OPENAI_API_KEY` | From your .env | AI model authentication (if set) |
 | `GEMINI_API_KEY` | From your .env (if set) | Required for `google/...` Gemini models (for example `google/gemini-2.5-flash`) |
 | `GOOGLE_CLOUD_PROJECT_ID` | From your .env (optional) | Project hint used by some Google auth flows |
-| `OPENROUTER_API_KEY` | From your .env (if set) | Required for any `openrouter/...` model or fallback (e.g. `openrouter/free`) |
+| `OPENROUTER_API_KEY` | From your .env (if set) | Required for any `openrouter/...` model you explicitly select |
 
 Editing **Config** in the OpenClaw Control UI only changes `/data/openclaw.json`. It does **not** set API keys. For OpenRouter to work, `OPENROUTER_API_KEY` must exist in the **Fly machine environment** (same as [Discord bootstrap](https://docs.openclaw.ai/) tokens). If you add OpenRouter after the moltbot was created, set it on the Fly app:
 
@@ -365,14 +365,14 @@ fly machine restart -a moltbot-YOUR-BOT-NAME
 
 ### Model Failover Defaults
 
-New moltbots are provisioned with multi-provider fallback order to avoid single-provider outages or billing policy blocks:
+New moltbots are provisioned with multi-provider fallback order to avoid single-provider outages:
 
-1. `openrouter/free`
-2. `google/gemini-2.5-flash`
-3. `google/gemini-2.5-pro`
-4. `openai/gpt-4o`
-5. `anthropic/claude-sonnet-4-5`
-6. `anthropic/claude-opus-4-5`
+1. `google/gemini-2.5-flash`
+2. `google/gemini-2.5-pro`
+3. `openai/gpt-4o`
+4. `anthropic/claude-sonnet-4-5`
+5. `anthropic/claude-opus-4-5`
+6. `openrouter/free`
 
 You can still set any model as primary in the Control UI config. Keep at least one non-Anthropic fallback enabled for resilience.
 

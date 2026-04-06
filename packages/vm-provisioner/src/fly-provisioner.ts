@@ -76,12 +76,12 @@ function maxConcurrentForVmSize(vmSize: MoltbotVmSize): number {
  * changes cannot completely block agent replies.
  */
 const DEFAULT_MODEL_FALLBACKS = [
-  "openrouter/free",
   "google/gemini-2.5-flash",
   "google/gemini-2.5-pro",
   "openai/gpt-4o",
   "anthropic/claude-sonnet-4-5",
   "anthropic/claude-opus-4-5",
+  "openrouter/free",
 ] as const;
 
 // Prefix for moltbot app names to identify them

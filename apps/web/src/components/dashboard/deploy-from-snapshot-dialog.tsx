@@ -35,6 +35,7 @@ interface ProviderStatus {
   anthropic: boolean;
   anthropicApiKey?: boolean;
   anthropicSetupToken?: boolean;
+  google: boolean;
   openai: boolean;
   openrouter: boolean;
 }
@@ -48,7 +49,12 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderStatus>({ anthropic: false, openai: false, openrouter: false });
+  const [providers, setProviders] = useState<ProviderStatus>({
+    anthropic: false,
+    google: false,
+    openai: false,
+    openrouter: false,
+  });
   const [snapshots, setSnapshots] = useState<VolumeSnapshot[]>([]);
   const [loadingSnapshots, setLoadingSnapshots] = useState(false);
 
@@ -71,7 +77,7 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
           }
         })
         .catch(() => {
-          setProviders({ anthropic: true, openai: true, openrouter: true });
+          setProviders({ anthropic: true, google: true, openai: true, openrouter: true });
         });
 
       // Fetch all snapshots
@@ -146,7 +152,7 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
     return providers[provider as keyof ProviderStatus];
   };
 
-  const hasAnyProvider = providers.anthropic || providers.openai || providers.openrouter;
+  const hasAnyProvider = providers.anthropic || providers.google || providers.openai || providers.openrouter;
 
   // Group snapshots by moltbot
   const snapshotsByMoltbot = snapshots.reduce((acc, snapshot) => {
@@ -278,7 +284,7 @@ export function DeployFromSnapshotDialog({ children }: DeployFromSnapshotDialogP
 
           {!hasAnyProvider && (
             <p className="text-sm text-destructive">
-              No AI provider configured. Add ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, OPENAI_API_KEY, or OPENROUTER_API_KEY to{" "}
+              No AI provider configured. Add ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY to{" "}
               <code className="bg-muted px-1 rounded">apps/api/.env</code>.
             </p>
           )}

@@ -68,6 +68,7 @@ healthRouter.get("/providers", (c) => {
       anthropic: anthropicApiKey || anthropicSetupToken,
       anthropicApiKey,
       anthropicSetupToken,
+      google: isRealKey(process.env.GEMINI_API_KEY),
       openai: isRealKey(process.env.OPENAI_API_KEY),
       openrouter: isRealKey(process.env.OPENROUTER_API_KEY),
     },
