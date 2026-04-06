@@ -372,7 +372,8 @@ New moltbots are provisioned with multi-provider fallback order to avoid single-
 3. `openai/gpt-4o`
 4. `anthropic/claude-sonnet-4-5`
 5. `anthropic/claude-opus-4-5`
-6. `openrouter/free`
+6. `baulab/gemma-4-26b`
+7. `openrouter/free`
 
 You can still set any model as primary in the Control UI config. Keep at least one non-Anthropic fallback enabled for resilience.
 

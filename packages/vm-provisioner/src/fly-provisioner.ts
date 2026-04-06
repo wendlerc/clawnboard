@@ -81,8 +81,26 @@ const DEFAULT_MODEL_FALLBACKS = [
   "openai/gpt-4o",
   "anthropic/claude-sonnet-4-5",
   "anthropic/claude-opus-4-5",
+  "baulab/gemma-4-26b",
   "openrouter/free",
 ] as const;
+
+const BAULAB_PROVIDER_CONFIG = {
+  baseUrl: "https://api.baulab123.uk/v1",
+  apiKey: "sk-local-litellm",
+  api: "openai-completions",
+  models: [
+    {
+      id: "gemma-4-26b",
+      name: "Gemma 4 26B (Local)",
+      reasoning: false,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 8192,
+    },
+  ],
+} as const;
 
 // Prefix for moltbot app names to identify them
 const MOLTBOT_APP_PREFIX = "moltbot-";
@@ -176,6 +194,11 @@ function buildOpenclawConfig(
         "google:default": { mode: "token", provider: "google" },
         "openai:default": { mode: "token", provider: "openai" },
         "openrouter:default": { mode: "token", provider: "openrouter" },
+      },
+    },
+    models: {
+      providers: {
+        baulab: BAULAB_PROVIDER_CONFIG,
       },
     },
     ...(discordChannels ? { channels: discordChannels } : {}),
